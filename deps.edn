@@ -1,13 +1,29 @@
 {:paths ["src" "resources"]
- :deps {org.clojure/clojure {:mvn/version "1.11.1"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+        org.clojure/data.json {:mvn/version "2.4.0"}
+        org.clojure/core.async {:mvn/version "1.6.681"}
+
+        babashka/process {:mvn/version "0.5.22"}
+        metosin/jsonista {:mvn/version "0.3.11"}
+        datalevin/datalevin {:mvn/version "0.9.12"}
+        overtone/overtone {:mvn/version "0.14.3199"}
+        io.github.tonsky/clj-reload {:mvn/version "0.7.1"}
+        mvxcvi/puget {:mvn/version "1.3.4"}
+        pjstadig/humane-test-output {:mvn/version "0.11.0"}
+        io.github.cognitect-labs/test-runner {:git/tag "v0.5.1" :git/sha "dfb30dd"}
+        com.github.seancorfield/expectations {:mvn/version "2.1.201"}
+        djblue/portal {:mvn/version "0.58.2"}}
  :aliases
- {:run-m {:main-opts ["-m" "neilyio.metal-detectors"]}
-  :run-x {:ns-default neilyio.metal-detectors
-          :exec-fn greet
-          :exec-args {:name "Clojure"}}
+ {:run-m {:main-opts ["-m" "neilyio.metal-detectors"]} ; Corrected run via -main
+  :run-x {:exec-fn neilyio.metal-detectors/run-server  ; Corrected the run-x alias
+          :exec-args {:port 5000}}                     ; Provide default port via exec args
   :build {:deps {io.github.clojure/tools.build {:mvn/version "0.9.4"}}
           :ns-default build}
+
   :test {:extra-paths ["test"]
          :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
                       io.github.cognitect-labs/test-runner
-                      {:git/tag "v0.5.1" :git/sha "dfb30dd"}}}}}
+                      {:git/tag "v0.5.1" :git/sha "dfb30dd"}}}
+  :jvm-base ; Required jvm flags for datalevin
+  {:jvm-opts ["--add-opens=java.base/java.nio=ALL-UNNAMED"
+              "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]}}}

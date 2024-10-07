@@ -1,0 +1,71 @@
+{:paths ["src", "resources"]
+ :deps {neilyio/metal-detectors {:local/root "."}}
+ :pods {org.babashka/fswatcher {:version "0.0.5"}}
+ :tasks {main-repl (clojure "-X:jvm-base neilyio.repl/socket-repl")
+         debug-repl (clojure)
+         socket (shell "nc localhost" repl-port)
+         input (do
+                 (println)
+                 (println "press any key defined in events.clj")
+                 (println "if this is the first run for this session...")
+                 (println "... be patient, the audio buffers will need to load")
+                 (println "after your first key press (30 seconds? maybe?)")
+                 (println)
+                 (println "... press space (and wait) if you don't know what to do right now")
+                 (println)
+                 (while true (when-let [event (read-event)]
+                               (->> (nc data-port event)
+                                    (neilyio.tasks/print-event)))))
+
+         event (some->> (map edn/read-string (rest *command-line-args*))
+                        (vec)
+                        (nc data-port)
+                        (neilyio.tasks/print-info
+                         (edn/read-string (first *command-line-args*))))
+
+         reload (nc data-port [:reload])
+         menu (neilyio.tasks/menu)
+         dump-db (shell "dtlv --dir" db-path "dump --datalog --all")
+         load (-> (process "find . -maxdepth 10 -name '*.mp3'")
+                  (shell {:continue true} "fzf"))
+
+         dev-db (shell "aider"
+                       ; "--sonnet"
+                       ; "--4o"
+                       "--4-turbo"
+                       ; "--file" "src/neilyio/repl.clj"
+                       ; "--file" "src/neilyio/repl/test.clj"
+                       "--file" "src/neilyio/db/test.clj"
+                       "--file" "src/neilyio/db.clj"
+                       ; "--file" "src/neilyio/events.clj"
+                       ; "--file" "src/neilyio/print.clj"
+                       ; "--file" "src/neilyio/print/test.clj"
+                      ;;
+                       )
+
+         test-cmd (-> (nc repl-port
+                          '(require 'clojure.test)
+                          '(require 'neilyio.db.test)
+                          '(require 'neilyio.db.backfill)
+                          '(require 'neilyio.repl.test)
+                          '(require 'neilyio.print.test)
+                          '(require 'clj-reload.core)
+                          '(clj-reload.core/reload)
+                          '(binding [clojure.test/*test-out* *out*]
+                             #_(clojure.test/run-test-var
+                                (resolve 'neilyio.db.test/loop-manipulation-tests))
+                             (clojure.test/run-tests
+                              'neilyio.repl.test
+                              'neilyio.db.test
+                              'neilyio.db.backfill
+                              'neilyio.print.test)))
+                      (println))
+
+         test-watch (shell "watchexec -e clj,edn bb test-cmd")
+
+         :init (do (require
+                    '[clojure.edn :as edn]
+                    '[babashka.process :refer [process]]
+                    '[neilyio.config :refer [repl-port data-port db-path]]
+                    '[neilyio.tasks :refer [read-event nc]]))}}
+

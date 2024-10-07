@@ -1,6 +1,7 @@
 .calva/output-window/
 .classpath
 .clj-kondo/.cache
+.clj-kondo/overtone/do_not_commit_me 
 .cpcache
 .DS_Store
 .eastwood
@@ -27,3 +28,5 @@
 /checkouts
 /classes
 /target
+.aider*
+.env
