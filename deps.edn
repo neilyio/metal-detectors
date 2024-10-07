@@ -1,12 +1,15 @@
 {:paths ["src" "resources"]
- :deps {org.clojure/clojure {:mvn/version "1.11.1"}}
+:deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        org.clojure/core.async {:mvn/version "1.5.648"}
+        overtone/overtone {:mvn/version "0.10.3"}
+        org.clojure/data.json {:mvn/version "2.4.0"}}
  :aliases
- {:run-m {:main-opts ["-m" "neilyio.metal-detectors"]}
-  :run-x {:ns-default neilyio.metal-detectors
-          :exec-fn greet
-          :exec-args {:name "Clojure"}}
+{:run-m {:main-opts ["-m" "neilyio.metal-detectors"]} ; Corrected run via -main
+  :run-x {:exec-fn neilyio.metal-detectors/run-server  ; Corrected the run-x alias
+          :exec-args {:port 5000}}                     ; Provide default port via exec args
   :build {:deps {io.github.clojure/tools.build {:mvn/version "0.9.4"}}
           :ns-default build}
+
   :test {:extra-paths ["test"]
          :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
                       io.github.cognitect-labs/test-runner
