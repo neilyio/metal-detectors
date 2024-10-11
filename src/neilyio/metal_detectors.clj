@@ -1,7 +1,11 @@
 (ns neilyio.metal-detectors
   (:require [clojure.data.json :as json]
             [clojure.core.async :refer [chan go-loop <! >! put!]])
-  (:import [java.net DatagramSocket DatagramPacket InetAddress SocketException])
+  (:import [java.net DatagramSocket DatagramPacket InetAddress SocketException]
+           [uk.co.caprica.vlcj.player.component EmbeddedMediaPlayerComponent]
+           [uk.co.caprica.vlcj.factory MediaPlayerFactory]
+           [javax.swing JFrame SwingUtilities]
+           [com.sun.jna NativeLibrary])
   (:gen-class))
 
 ;; Atom to store UUID -> data mapping (storing RSSI, distance, etc.)
@@ -94,13 +98,27 @@
   (println "Press Enter to stop the server.")
   (read-line))
 
+(defn play-video [file-path]
+  (SwingUtilities/invokeLater
+   (fn []
+     (let [frame (JFrame. "VLCJ Media Player")
+           media-player-component (EmbeddedMediaPlayerComponent.)
+           media-player (.mediaPlayer media-player-component)]
+       (.add (.getContentPane frame) media-player-component)
+       (.setSize frame 800 600)
+       (.setDefaultCloseOperation frame JFrame/EXIT_ON_CLOSE)
+       (.setVisible frame true)
+       (.play (.media media-player) file-path)))))
+
+
 (defn -main
   "Main entry point to start the UDP server."
   [& args]
-  (run-server {:port (if (seq args)
-                       (try
-                         (Integer/parseInt (first args)) ;; Ensure port is parsed correctly as an integer
-                         (catch Exception e
-                           (println "Invalid port provided. Using default port 5000.")
-                           5000))
-                       5000)}))
+  ;; (run-server {:port (if (seq args)
+  ;;                      (try
+  ;;                        (Integer/parseInt (first args)) ;; Ensure port is parsed correctly as an integer
+  ;;                        (catch Exception e
+  ;;                          (println "Invalid port provided. Using default port 5000.")
+  ;;                          5000))
+  ;;                      5000)})
+  (play-video "/Users/stevenchu/Downloads/tongue-singing-choir.mp4"))
