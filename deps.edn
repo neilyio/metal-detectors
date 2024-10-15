@@ -1,5 +1,8 @@
 {:paths ["src" "resources"]
- :deps {org.clojure/clojure {:mvn/version "1.11.1"}}
+ :deps {overtone/overtone {:mvn/version "0.14.3199"}
+        io.github.tonsky/clj-reload {:mvn/version "0.7.0"}
+        quil/quil {:mvn/version "4.3.1563"}
+        org.clojure/clojure {:mvn/version "1.11.1"}}
  :aliases
  {:run-m {:main-opts ["-m" "neilyio.metal-detectors"]}
   :run-x {:ns-default neilyio.metal-detectors

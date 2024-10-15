@@ -1,0 +1,1 @@
+{:lint-as {neilyio.macros/defpart clojure.core/defn}}

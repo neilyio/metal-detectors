@@ -1,0 +1,47 @@
+{:lint-as #:overtone.music.pitch{defratio clojure.core/def},
+ :hooks
+ {:analyze-call
+  {overtone.sc.synth/demo overtone.overtone.clj-kondo-hooks/demo,
+   overtone.core/demo overtone.overtone.clj-kondo-hooks/demo,
+   overtone.live/defsynth-load
+   overtone.overtone.clj-kondo-hooks/defsynth-load,
+   overtone.api/immigrate-overtone-api
+   overtone.overtone.clj-kondo-hooks/immigrate-overtone-api,
+   clj-native.direct/defclib overtone.overtone.clj-kondo-hooks/defclib,
+   overtone.byte-spec/defspec
+   overtone.overtone.clj-kondo-hooks/defspec,
+   overtone.sc.machinery.ugen.fn-gen/intern-ugens
+   overtone.overtone.clj-kondo-hooks/intern-ugens,
+   overtone.studio.inst/definst
+   overtone.overtone.clj-kondo-hooks/defsynth,
+   overtone.sc.synth/defsynth
+   overtone.overtone.clj-kondo-hooks/defsynth,
+   overtone.core/defcgen overtone.overtone.clj-kondo-hooks/defcgen,
+   overtone.live/definst overtone.overtone.clj-kondo-hooks/defsynth,
+   overtone.sc.machinery.defexample/defexamples
+   overtone.overtone.clj-kondo-hooks/defexamples,
+   overtone.live/demo overtone.overtone.clj-kondo-hooks/demo,
+   overtone.core/defsynth overtone.overtone.clj-kondo-hooks/defsynth,
+   overtone.core/defsynth-load
+   overtone.overtone.clj-kondo-hooks/defsynth-load,
+   overtone.helpers.lib/defrecord-ifn
+   overtone.overtone.clj-kondo-hooks/defrecord-ifn,
+   overtone.sc.synth/defsynth-load
+   overtone.overtone.clj-kondo-hooks/defsynth-load,
+   overtone.sc.machinery.ugen.check/defcheck
+   overtone.overtone.clj-kondo-hooks/defcheck,
+   overtone.sc.defcgen/defcgen
+   overtone.overtone.clj-kondo-hooks/defcgen,
+   overtone.sc.envelope/defunk-env
+   overtone.overtone.clj-kondo-hooks/defunk-env,
+   overtone.synth.stringed/gen-stringed-synth
+   overtone.overtone.clj-kondo-hooks/gen-stringed-synth,
+   overtone.helpers.lib/defunk
+   overtone.overtone.clj-kondo-hooks/defunk,
+   overtone.core/definst overtone.overtone.clj-kondo-hooks/defsynth,
+   overtone.live/defcgen overtone.overtone.clj-kondo-hooks/defcgen,
+   overtone.live/defsynth overtone.overtone.clj-kondo-hooks/defsynth}},
+ :config-in-ns
+ {overtone.studio.util {:linters {:inline-def {:level :off}}},
+  overtone.studio.mixer {:linters {:inline-def {:level :off}}},
+  overtone.sc.ugens {:linters {:inline-def {:level :off}}}}}
