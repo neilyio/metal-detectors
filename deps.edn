@@ -1,10 +1,10 @@
 {:paths ["src" "resources"]
-:deps {org.clojure/clojure {:mvn/version "1.11.1"}
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         org.clojure/core.async {:mvn/version "1.5.648"}
         overtone/overtone {:mvn/version "0.10.3"}
         org.clojure/data.json {:mvn/version "2.4.0"}}
  :aliases
-{:run-m {:main-opts ["-m" "neilyio.metal-detectors"]} ; Corrected run via -main
+ {:run-m {:main-opts ["-m" "neilyio.metal-detectors"]} ; Corrected run via -main
   :run-x {:exec-fn neilyio.metal-detectors/run-server  ; Corrected the run-x alias
           :exec-args {:port 5000}}                     ; Provide default port via exec args
   :build {:deps {io.github.clojure/tools.build {:mvn/version "0.9.4"}}
