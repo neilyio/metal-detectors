@@ -1,12 +1,15 @@
 (ns neilyio.metal-detectors
   (:use [overtone.live])
-  (:require [overtone.linter]))
+  (:require [overtone.linter]
+            [clojure.core.async :refer [chan go-loop >! <! put! timeout close!]]))
 
 (comment
   ;; Boot a server process. This will initiate a global server process,
   ;; and won't work more than once
   (boot-server)
   (kill-server)
+  (stop)
+
 
   ;; Emit clj-kondo config (don't commit).
   (overtone.linter/emit!)
@@ -17,10 +20,9 @@
 (comment
   ;; Load a sample and return a function that can play it.
   ;; load-sample will load a sample into a buffer.
-  (def kick (sample "/Users/neilhansen/Downloads/249212__netr_si__kick-41.wav"))
+  (def kick (sample "./tracks/Dark Sky - Angels_1.1.aif"))
 
-  (sample "/Users/neilhansen/Downloads/249212__netr_si__kick-41.wav")
-
+  ((sample "./tracks/Dark Sky - Angels_1.1.aif"))
   (comment
     ;; Play the sound.
     (kick))
@@ -58,39 +60,57 @@
       ;; Stop all synths and metronomes.
       (stop))))
 
+(def _tracks
+  {:rocket "/test_tracks/Worst Case - Rocket.mp3"
+   :meadow "/test_tracks/Township Rebellion - Infinite Meadow.mp3"
+   :visions "/test_tracks/Stereo.type, Felix Raphael - Visions - Bebetta & Cioz Remix.mp3"
+   :jiminy "/test_tracks/Polo & Pan - Jiminy.mp3"
+   :lost "/test_tracks/Oliver Koletzki, Monolink - We Are All Lost.mp3"
+   :uplifting "/test_tracks/Of Norway, Linnea Dale - Favourite Mistake - Karim Sahraoui Uplifting Remix.mp3"
+   :sunset "/test_tracks/Mosley Jr - SunSet.mp3"
+   :ashes "/test_tracks/Lauren Mia - Ashes in Paradise.mp3"
+   :geoform "/test_tracks/HunterGame - Geoform.mp3"
+   :nobody "/test_tracks/Felix Jaehn, Jasmine Thompson - Ain't Nobody (Loves Me Better) - Gunes Ergun Remix.mp3"
+   :dream "/test_tracks/Dominik Eulberg, Essáy - Dream Machine.mp3"
+   :angels "/test_tracks/Dark Sky - Angels.mp3"
+   :cosmic "/test_tracks/CIOZ - Cosmic Noise.mp3"
+   :rampa "/test_tracks/Âme - No War - Rampa Remix.mp3"
+   :breeze "/test_tracks/alt-J - Breezeblocks - Tinlicker Extended Mix.mp3"})
+
+;; TODO : remove this in favor of _tracks
 (def tracks
-  {:rocket "/Users/neilhansen/Desktop/test_tracks/Worst Case - Rocket.mp3"
-   :meadow "/Users/neilhansen/Desktop/test_tracks/Township Rebellion - Infinite Meadow.mp3"
-   :visions "/Users/neilhansen/Desktop/test_tracks/Stereo.type, Felix Raphael - Visions - Bebetta & Cioz Remix.mp3"
-   :jiminy "/Users/neilhansen/Desktop/test_tracks/Polo & Pan - Jiminy.mp3"
-   :lost "/Users/neilhansen/Desktop/test_tracks/Oliver Koletzki, Monolink - We Are All Lost.mp3"
-   :uplifting "/Users/neilhansen/Desktop/test_tracks/Of Norway, Linnea Dale - Favourite Mistake - Karim Sahraoui Uplifting Remix.mp3"
-   :sunset "/Users/neilhansen/Desktop/test_tracks/Mosley Jr - SunSet.mp3"
-   :ashes "/Users/neilhansen/Desktop/test_tracks/Lauren Mia - Ashes in Paradise.mp3"
-   :geoform "/Users/neilhansen/Desktop/test_tracks/HunterGame - Geoform.mp3"
-   :nobody "/Users/neilhansen/Desktop/test_tracks/Felix Jaehn, Jasmine Thompson - Ain't Nobody (Loves Me Better) - Gunes Ergun Remix.mp3"
-   :dream "/Users/neilhansen/Desktop/test_tracks/Dominik Eulberg, Essáy - Dream Machine.mp3"
-   :angels "/Users/neilhansen/Desktop/test_tracks/Dark Sky - Angels.mp3"
-   :cosmic "/Users/neilhansen/Desktop/test_tracks/CIOZ - Cosmic Noise.mp3"
-   :rampa "/Users/neilhansen/Desktop/test_tracks/Âme - No War - Rampa Remix.mp3"
-   :breeze "/Users/neilhansen/Desktop/test_tracks/alt-J - Breezeblocks - Tinlicker Extended Mix.mp3"})
+  {:rocket "./tracks/Worst Case - Rocket_1.aif"
+   :meadow "./tracks/Township Rebellion - Infinite Meadow_1.1.aif"
+   :visions "./tracks/Stereo.type, Felix Raphael - Visions - Bebetta & Cioz Remix_1.aif"
+   :jiminy "./tracks/Polo & Pan - Jiminy_1.aif"
+   :lost "./tracks/Oliver Koletzki, Monolink - We Are All Lost_1.aif"
+   :uplifting "./tracks/Of Norway, Linnea Dale - Favourite Mistake - Karim Sahraoui Uplifting Remix_1.aif"
+   :sunset "./tracks/Mosley Jr - SunSet_1.aif"
+   :ashes "./tracks/Lauren Mia - Ashes in Paradise_1.aif"
+   :geoform "./tracks/HunterGame - Geoform_1.1.aif"
+   :nobody "./tracks/Felix Jaehn, Jasmine Thompson - Ain't Nobody (Loves Me Better) - Gunes Ergun Remix_1.1.aif"
+   :dream "./tracks/Dominik Eulberg, Essáy - Dream Machine_1.aif"
+   :angels "./tracks/Dark Sky - Angels_1.1.aif"
+   :cosmic "./tracks/CIOZ - Cosmic Noise_1.1.aif"
+   :rampa "./tracks/Âme - No War - Rampa Remix_1.aif"
+   :breeze "./tracks/alt-J - Breezeblocks - Tinlicker Extended Mix_1.1.aif"})
 
 (def loop-tracks
-  {:rocket "/Users/neilhansen/Desktop/test_tracks_loops/Worst Case - Rocket_1.aif"
-   :meadow "/Users/neilhansen/Desktop/test_tracks_loops/Township Rebellion - Infinite Meadow_1.1.aif"
-   :visions "/Users/neilhansen/Desktop/test_tracks_loops/Stereo.type, Felix Raphael - Visions - Bebetta & Cioz Remix_1.aif"
-   :jiminy "/Users/neilhansen/Desktop/test_tracks_loops/Polo & Pan - Jiminy_1.aif"
-   :lost "/Users/neilhansen/Desktop/test_tracks_loops/Oliver Koletzki, Monolink - We Are All Lost_1.aif"
-   :uplifting "/Users/neilhansen/Desktop/test_tracks_loops/Of Norway, Linnea Dale - Favourite Mistake - Karim Sahraoui Uplifting Remix_1.aif"
-   :sunset "/Users/neilhansen/Desktop/test_tracks_loops/Mosley Jr - SunSet_1.aif"
-   :ashes "/Users/neilhansen/Desktop/test_tracks_loops/Lauren Mia - Ashes in Paradise_1.aif"
-   :geoform "/Users/neilhansen/Desktop/test_tracks_loops/HunterGame - Geoform_1.1.aif"
-   :nobody "/Users/neilhansen/Desktop/test_tracks_loops/Felix Jaehn, Jasmine Thompson - Ain't Nobody (Loves Me Better) - Gunes Ergun Remix_1.1.aif"
-   :dream "/Users/neilhansen/Desktop/test_tracks_loops/Dominik Eulberg, Essáy - Dream Machine_1.aif"
-   :angels "/Users/neilhansen/Desktop/test_tracks_loops/Dark Sky - Angels_1.1.aif"
-   :cosmic "/Users/neilhansen/Desktop/test_tracks_loops/CIOZ - Cosmic Noise_1.1.aif"
-   :rampa "/Users/neilhansen/Desktop/test_tracks_loops/Âme - No War - Rampa Remix_1.aif"
-   :breeze "/Users/neilhansen/Desktop/test_tracks_loops/alt-J - Breezeblocks - Tinlicker Extended Mix_1.1.aif"})
+  {:rocket "./tracks/Worst Case - Rocket_1.aif"
+   :meadow "./tracks/Township Rebellion - Infinite Meadow_1.1.aif"
+   :visions "./tracks/Stereo.type, Felix Raphael - Visions - Bebetta & Cioz Remix_1.aif"
+   :jiminy "./tracks/Polo & Pan - Jiminy_1.aif"
+   :lost "./tracks/Oliver Koletzki, Monolink - We Are All Lost_1.aif"
+   :uplifting "./tracks/Of Norway, Linnea Dale - Favourite Mistake - Karim Sahraoui Uplifting Remix_1.aif"
+   :sunset "./tracks/Mosley Jr - SunSet_1.aif"
+   :ashes "./tracks/Lauren Mia - Ashes in Paradise_1.aif"
+   :geoform "./tracks/HunterGame - Geoform_1.1.aif"
+   :nobody "./tracks/Felix Jaehn, Jasmine Thompson - Ain't Nobody (Loves Me Better) - Gunes Ergun Remix_1.1.aif"
+   :dream "./tracks/Dominik Eulberg, Essáy - Dream Machine_1.aif"
+   :angels "./tracks/Dark Sky - Angels_1.1.aif"
+   :cosmic "./tracks/CIOZ - Cosmic Noise_1.1.aif"
+   :rampa "./tracks/Âme - No War - Rampa Remix_1.aif"
+   :breeze "./tracks/alt-J - Breezeblocks - Tinlicker Extended Mix_1.1.aif"})
 
 (def samples (apply merge (for [[key path] tracks] {key (sample path)})))
 (def loops (apply merge (for [[key path] loop-tracks] {key (sample path)})))
@@ -162,7 +182,7 @@
   (defsynth daw-timeline [out-bus 0 buffer 0 bpm 120 play-head 0 paused 0 loop-start 0 loop-end -1 loop-enabled 0]
     (let [sample-rate (buf-sample-rate:kr buffer)
           rate-scale (buf-rate-scale:kr buffer)
-          frames-per-beat (/ (* sample-rate 60) bpm)
+          Frames-per-beat (/ (* sample-rate 60) bpm)
 
         ;; Calculate the total length of the buffer in frames
           total-frames (buf-frames:kr buffer)
@@ -279,3 +299,224 @@
               (out:ar 0 (in:ar bus 2))))))
 
       nil)))
+
+;; TODO change this function name
+(defn greet [_]
+  (boot-server))
+
+
+;;; Pablo code below
+(defn play-all-tracks
+  "Plays all tracks simultaneously at the specified BPM.
+   Optional parameters:
+   - bpm: Beats per minute (default 123)
+   - beats: Number of beats in loop (default 16)
+   Returns: Vector of created synth instances"
+  [& {:keys [bpm beats]
+      :or {bpm 123 beats 16}}]
+  (do
+    ;; Stop any currently playing audio
+    (stop)
+    ;; Reset audio buses
+    (reset! audio-buses [])
+    ;; Play all tracks simultaneously
+    (at (now)
+        (doall  ; Force evaluation of lazy sequence
+          (for [track-key (keys loops)]
+            (looped :bpm bpm
+                   :out-bus (assign-bus)
+                   :buffer (track-key loops)
+                   :beats beats))))))
+
+(defn play-all-tracks-simple []
+  (println "Stopping any existing playback...")
+  (stop)
+
+  (println "Starting playback of all tracks...")
+  (doseq [[track-name sample-fn] samples]
+    (println "Playing track:" track-name)
+    (sample-fn))
+
+  (println "All tracks triggered"))
+
+;; Alternative version using loops map
+(defn play-all-loops []
+  (println "Stopping any existing playback...")
+  (stop)
+
+  (println "Starting playback of all loops...")
+  (doseq [[track-name buffer] loops]
+    (println "Playing loop:" track-name)
+    (looped :bpm 123
+            :out-bus 0
+            :buffer buffer
+            :beats 16))
+
+  (println "All loops triggered"))
+
+;; To test individual tracks:
+(comment
+  ;; Try playing a single track first
+  ((get samples :angels))
+
+  ;; Then try all tracks
+  (play-all-tracks-simple)
+
+  ;; Or try the loops version
+  (play-all-loops)
+
+  (play-all-tracks)
+  
+  ;; Stop playback
+  (stop))
+
+
+;; Example usage:
+(comment
+  (play-all-tracks)  ; Play with default settings
+  (play-all-tracks :bpm 128 :beats 32)  ; Custom BPM and beat length
+  (stop)  ; Stop playback
+  )
+
+
+;;; tryign to adjust volume based on core.async channels
+;;;
+;;; Create a map of volume control channels for each track
+(def volume-channels
+  (into {}
+        (for [track-key (keys loops)]
+          [track-key (chan)])))
+
+;; Create atoms to store our synth instances
+(def track-synths (atom {}))
+
+(defn start-volume-controlled-tracks
+  "Start all tracks with volume control via channels.
+   Returns a map of track names to their volume control channels."
+  [& {:keys [bpm beats]
+      :or {bpm 123 beats 16}}]
+
+  ;; Stop any existing playback
+  (stop)
+  (reset! track-synths {})
+
+  ;; Start each track with volume control
+  (doseq [[track-key buffer] loops]
+    (let [bus (audio-bus 2)  ; Create stereo bus for each track
+          vol-chan (get volume-channels track-key)
+
+          ;; Create synth with volume control
+          synth (synth [vol 0.0]
+                  (out:ar 0
+                    (* vol
+                       (pan2
+                         (scaled-play-buf 2 buffer
+                           :rate (buf-rate-scale:kr buffer)
+                           :loop 1)))))
+
+          ;; Store synth instance
+          synth-instance (synth)]
+
+      ;; Store in our atom for later control
+      (swap! track-synths assoc track-key synth-instance)
+
+      ;; Start a go-loop to handle volume changes
+      (go-loop []
+        (when-let [new-vol (<! vol-chan)]
+          (ctl synth-instance :vol new-vol)
+          (recur)))))
+
+  ;; Return the channels map for external control
+  volume-channels)
+
+(defn set-track-volume!
+  "Set volume for a specific track (0.0 to 1.0)"
+  [track-key volume]
+  (when-let [chan (get volume-channels track-key)]
+    (put! chan volume)))
+
+(defn stop-volume-controlled-tracks!
+  "Stop all tracks and clean up channels"
+  []
+  (stop)
+  (doseq [chan (vals volume-channels)]
+    (close! chan))
+  (reset! track-synths {}))
+
+;; Example usage and test functions
+(defn test-volume-fade
+  "Test function to demonstrate volume control"
+  []
+  (let [chans (start-volume-controlled-tracks)]
+
+    ;; Start with all volumes at 0
+    (doseq [track-key (keys loops)]
+      (set-track-volume! track-key 0.0))
+
+    ;; Fade each track in and out in sequence
+    (go-loop [[track & remaining] (keys loops)]
+      (when track
+        ;; Fade in
+        (println "Fading in" track)
+        (doseq [vol (range 0 1.1 0.1)]
+          (set-track-volume! track vol)
+          (<! (timeout 100)))
+
+        ;; Hold
+        (<! (timeout 1000))
+
+        ;; Fade out
+        (println "Fading out" track)
+        (doseq [vol (range 1 -0.1 -0.1)]
+          (set-track-volume! track vol)
+          (<! (timeout 100)))
+
+        ;; Move to next track
+        (recur remaining)))))
+
+;; Example of random volume changes
+(defn random-volume-changes
+  "Randomly change volumes of all tracks"
+  []
+  (let [chans (start-volume-controlled-tracks)]
+    (go-loop []
+      (doseq [track-key (keys loops)]
+        (set-track-volume! track-key (rand)))
+      (<! (timeout 500))  ; Change every 500ms
+      (recur))))
+
+;; Example of rhythmic volume patterns
+(defn rhythmic-volumes
+  "Create rhythmic patterns with volume changes"
+  [bpm]
+  (let [chans (start-volume-controlled-tracks)
+        beat-time (/ 60000 bpm)]  ; milliseconds per beat
+    (go-loop [beat 0]
+      (doseq [track-key (keys loops)]
+        (let [volume (if (zero? (mod (+ beat (hash track-key)) 4))
+                      1.0  ; Accent on every 4th beat (different for each track)
+                      0.3)]  ; Background volume
+          (set-track-volume! track-key volume)))
+      (<! (timeout beat-time))
+      (recur (inc beat)))))
+
+(comment
+  ;; Start the tracks
+  (def channels (start-volume-controlled-tracks))
+
+  ;; Try some individual volume controls
+  (set-track-volume! :angels 0.8)
+  (set-track-volume! :rocket 0.5)
+
+  ;; Run the test fade sequence
+  (test-volume-fade)
+
+  ;; Try random volume changes
+  (random-volume-changes)
+
+  ;; Try rhythmic patterns
+  (rhythmic-volumes 120)  ; 120 BPM
+
+  ;; Stop everything
+  (stop-volume-controlled-tracks!)
+)
