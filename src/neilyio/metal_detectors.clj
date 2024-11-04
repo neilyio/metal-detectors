@@ -300,12 +300,15 @@
 
       nil)))
 
+
+;;; Pablo code below!!!
+;;;
+;;;
+
 ;; TODO change this function name
 (defn greet [_]
   (boot-server))
 
-
-;;; Pablo code below
 (defn play-all-tracks
   "Plays all tracks simultaneously at the specified BPM.
    Optional parameters:
@@ -371,7 +374,6 @@
   (stop))
 
 
-;; Example usage:
 (comment
   (play-all-tracks)  ; Play with default settings
   (play-all-tracks :bpm 128 :beats 32)  ; Custom BPM and beat length
@@ -474,7 +476,7 @@
         ;; Move to next track
         (recur remaining)))))
 
-;; Example of random volume changes
+;; Example for random volume changes
 (defn random-volume-changes
   "Randomly change volumes of all tracks"
   []
@@ -485,7 +487,7 @@
       (<! (timeout 500))  ; Change every 500ms
       (recur))))
 
-;; Example of rhythmic volume patterns
+;; Weird example of rhythmic volume patterns
 (defn rhythmic-volumes
   "Create rhythmic patterns with volume changes"
   [bpm]
