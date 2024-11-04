@@ -5,7 +5,8 @@
         org.clojure/core.async {:mvn/version "1.6.681"}
         org.clojure/clojure {:mvn/version "1.11.1"}}
  :aliases
- {:run-m {:main-opts ["-m" "neilyio.metal-detectors"]}
+ {:run-server {:main-opts ["-m" "neilyio.server"]}
+  :run-m {:main-opts ["-m" "neilyio.metal-detectors"]}
   :run-x {:ns-default neilyio.metal-detectors
           :exec-fn greet
           :exec-args {:name "Clojure"}}
