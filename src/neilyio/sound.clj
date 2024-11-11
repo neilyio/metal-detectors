@@ -30,6 +30,7 @@
     (live/out:kr state-bus [(/ (live/a2k ptr) frames) ;; current
                             (live/a2k ptr)            ;; current-frame
                             sample-rate               ;; sample-rate
+                            rate-scale                ;; rate-scale
                             frames                    ;; total-frames
                             start-pos                 ;; loop-start-frame
                             end-pos                   ;; loop-end-frame
@@ -44,7 +45,7 @@
 
 (defn timeline-info [timeline-info-bus play-info-bus]
   (assert (and timeline-info-bus play-info-bus) "engine info bus not initialized")
-  (let [[current current-frame sample-rate total-frames
+  (let [[current current-frame sample-rate rate-scale total-frames
          loop-start-frame loop-end-frame loop-start loop-end]
         (live/control-bus-get timeline-info-bus)
         [playing-buffer playing?]
@@ -54,6 +55,7 @@
      ::current          current
      ::current-frame    current-frame
      ::sample-rate      sample-rate
+     ::rate-scale       rate-scale
      ::total-frames     total-frames
      ::loop-start-frame loop-start-frame
      ::loop-end-frame   loop-end-frame
@@ -75,10 +77,12 @@
    - event - event to handle
    Returns updated state with ::conn and ::db added."
   [get-conn set-timeline-info!]
-  (let [db (d/db (get-conn))
+  (let [db      (d/db (get-conn))
         buffers (atom {})
-        label (-> (db/selected-speaker db) :speaker/loop :loop/source :source/label)
-        sources (->> (db/find-all-sources db) (filter #(= label (:source/label %))) (take 1))]
+        label   (-> (db/selected-speaker db) :speaker/loop :loop/source :source/label)
+        sources (db/find-all-sources db)]
+
+    ;; Print some comments so you can see what's taking so long.
     (println "Loading" (count sources) "sound files into memory, please wait...")
     (doseq [{:source/keys [label bytes]} sources]
       (print (str (count @buffers) "... "))
@@ -86,58 +90,54 @@
       (swap! buffers assoc label (bytes->sample bytes)))
     (println "Done loading buffers!")
     (println "Current selected buffer: " label)
-    (let [buffer (get @buffers label)
-          _ (assert buffer (str "buffer not loaded for " label))
-          timeline-info-bus (live/control-bus 8)
-          play-info-bus (live/control-bus 2)
-          timeline (timeline :buffer buffer :start 0 :state-bus timeline-info-bus)
-          playcontrol (playcontrol :id (:id timeline) :play 0 :state-bus play-info-bus)]
+
+    (tap> [:sound-module @buffers label sources])
+    (let [buffer             (get @buffers label)
+          timeline-info-bus  (live/control-bus 8)
+          play-info-bus      (live/control-bus 2)
+          timeline           (timeline :buffer (or buffer 0) :start 0 :state-bus timeline-info-bus)
+          playcontrol        (playcontrol :id (:id timeline) :play 0 :state-bus play-info-bus)]
       [:sound (fn [_]
-                (let [timeline-info (timeline-info timeline-info-bus play-info-bus)
-                      label (-> (db/selected-speaker db) :speaker/loop :loop/source :source/label)
-                      buffer (get @buffers label)]
-                  (assert buffer (str "no buffer loaded for " label))
+                (let [db            (d/db (get-conn))
+                      timeline-info (timeline-info timeline-info-bus play-info-bus)
+                      selected-loop (-> (db/selected-speaker db) :speaker/loop)
+                      label         (-> selected-loop :loop/source :source/label)
+                      buffer        (get @buffers label)]
+                  (tap> [:sound-module buffer label selected-loop timeline-info])
                   (set-timeline-info! timeline-info)
                   (merge timeline-info
+                         selected-loop
                          {::selected-buffer buffer
                           ::timeline timeline
                           ::playcontrol playcontrol
                           ::timeline-info-bus timeline-info-bus
                           ::play-info-bus play-info-bus})))])))
 
-(defmethod events/handle [:sound :play] [_ #_{::keys [playcontrol timeline]}]
+(defmethod events/handle [:sound :play] [{::keys [playcontrol timeline]}]
   (live/ctl playcontrol :id timeline :play 1))
 
-(defmethod events/handle [:sound :pause] [_ #_{::keys [playcontrol timeline]}]
+(defmethod events/handle [:sound :pause] [{::keys [playcontrol timeline]}]
   (live/ctl playcontrol :id timeline :play 0))
 
 (defmethod events/handle [:sound :play-toggle] [{::keys [playcontrol timeline playing?]}]
   (live/ctl playcontrol :id timeline :play (if (zero? playing?) 1 0)))
 
-; (defmethod events/handle [:sound :stop] [{state :state}]
-;   (swap! state assoc ::timeline nil ::playcontrol nil)
-;   (stop))
+(doseq [event [:loop-beats-4
+               :loop-beats-half
+               :loop-beats-double
+               :loop-beats-left-1
+               :loop-beats-right-1
+               :loop-beats-left-4
+               :loop-beats-right-4
+               :loop-beats-left-16
+               :loop-beats-right-16
+               :loop-beats-left-01
+               :loop-beats-right-01
+               :select-prev-speaker
+               :select-next-speaker
+               :select-prev-source
+               :select-next-source]]
 
-; (defmethod events/handle [:sound :seek-left] [{state :state}]
-;   (let [{::keys [timeline current seek-size]} (context state)]
-;     (ctl timeline :in (clamp (- current seek-size)))
-;     (output (context state) [:seek-size :current])))
+  (defmethod events/handle [:sound event] [{:loop/keys [in out] ::keys [timeline selected-buffer]}]
+    (live/ctl timeline :buffer selected-buffer  :in in :out out)))
 
-; (defmethod events/handle [:sound :seek-right] [{state :state}]
-;   (let [{::keys [timeline current seek-size]} (context state)]
-;     (ctl timeline :in (clamp (+ current seek-size)))
-;     (output (context state) [:seek-size :current])))
-
-; (defmethod events/handle [:sound :seek-to] [{state :state [_ in] :event}]
-;   (let [{::keys [timeline]} (context state)]
-;     (ctl timeline :in (clamp in))))
-
-; (defmethod events/handle [:sound :select-next-source] [{state :state}]
-;   (let [{::keys [timeline selected-buffer]} (context state)]
-;     (ctl timeline :buffer selected-buffer)
-;     (output (context state) [:current])))
-
-; (defmethod events/handle [:sound :select-prev-source] [{state :state}]
-;   (let [{::keys [timeline selected-buffer]} (context state)]
-;     (ctl timeline :buffer selected-buffer)
-;     (output (context state) [:current])))

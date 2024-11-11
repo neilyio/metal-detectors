@@ -38,10 +38,18 @@
    - event - event to handle
    Returns updated state with ::conn and ::db added."
   [get-conn]
+  (let [sources (d/q '[:find ?l :where [?e :source/label ?l]] (d/db (get-conn)))]
+    (println "Loaded tracks:")
+    (doseq [[label] sources] (println label))
+    (println))
   [:db (fn [state]
-         (let [conn (get-conn) db (d/db conn)]
+         (let [conn (get-conn)
+               db (d/db conn)
+               {:neilyio.sound/keys [sample-rate total-frames]} state
+               bpm 123
+               beat-size (some-> sample-rate (* 60) (/ bpm) (/ total-frames))]
            (assoc state
-                  ::beat-size 0.01
+                  ::beat-size beat-size
                   ::conn conn
                   ::db db)))])
 

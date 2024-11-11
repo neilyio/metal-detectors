@@ -12,6 +12,18 @@
    [portal.api]
    [puget.printer :as puget]))
 
+(defn portal-init
+  "Initialize Portal if not already running.
+   Returns the Portal instance."
+  []
+  (when (zero? (count (portal.api/sessions)))
+    (let [portal (portal.api/open {:app false})]
+      (add-tap (resolve 'portal.api/submit))
+      portal)))
+
+;; We want to load portal as soon as we run.
+(defonce ^:export _ (portal-init))
+
 (defn module
   "Initialize REPL module state and return an event handler function."
   []
@@ -31,22 +43,6 @@
               (module)
               (sound/module get-conn #(swap! state merge %))
               (print/module get-conn)])
-
-(defn portal-init
-  "Initialize Portal if not already running.
-   Returns the Portal instance."
-  []
-  (when (zero? (count (portal.api/sessions)))
-    (let [portal (portal.api/open {:app false})]
-      (add-tap (resolve 'portal.api/submit))
-      portal)))
-
-(defn dev-repl-init []
-  (in-ns 'user)
-  (portal-init))
-
-(defn dev-repl-eval [in]
-  (eval in))
 
 (defn dev-repl-print [out]
   (puget/cprint out))
@@ -69,6 +65,7 @@
     (println (utils/pr-edn {:err (::error event-data)}))
     (println (-> event-data :print :out pr-str))))
 
+;; Purposefully empty, we don't want a prompt here.
 (defn dev-data-prompt [])
 
 (defn ^:export socket-repl [& _]
@@ -89,9 +86,7 @@
     :port config/repl-port
     :server-daemon false
     :accept 'clojure.main/repl
-    :args [:init #'dev-repl-init
-           :print #'dev-repl-print
-           :eval #'dev-repl-eval
+    :args [:print #'dev-repl-print
            :read clojure.core.server/repl-read]})
   (println config/ascii-logo)
   (println)
