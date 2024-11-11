@@ -80,10 +80,10 @@
 
 (defmethod events/handle [:print :list-speakers] [{::keys [db]}]
   (for [speaker (db/find-all-speakers db)]
-    (d/pull db source-pattern speaker)))
+    (d/pull db source-pattern (:db/id speaker))))
 
 (defmethod events/handle [:print :selected-speaker] [{::keys [db]}]
   (get-selected-speaker db source-pattern))
 
-(defmethod events/handle [:print :default] [{:keys [event]}]
+(defmethod events/handle :default [{:keys [event]}]
   {:event event})

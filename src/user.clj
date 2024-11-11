@@ -25,18 +25,14 @@
     (db/transact! repl/state [{:selected/source 1}])
 
     (def conn (d/get-conn config/db-path db/schema))
-
-    (let [e (ffirst (d/q '[:find ?e :where [?e :source/label ".DS_Store"]] (d/db conn)))]
-      (d/transact! conn [[:db.fn/retractEntity e]]))
+    (d/q '[:find ?e :where [?e :source/label ?l]] (d/db conn))
 
     (doseq [path (fs/list-dir "/Users/neilhansen/Desktop/test_tracks")
-            :when  (= (fs/extension path) "DS_Store")]
+            :when  (not (= (fs/extension path) "DS_Store"))]
       (d/transact! (d/get-conn config/db-path db/schema)
                    [{:source/label (fs/file-name path)
                      :source/bytes (fs/read-all-bytes path)
                      :source/bpm 123}]))
-
-    (db/find-all-sources repl/state)
 
     (db/transact! repl/state
                   (for [source (utils/list-sources)]

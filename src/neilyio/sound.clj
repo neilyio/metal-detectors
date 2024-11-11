@@ -1,4 +1,4 @@
-(ns neilyio.sound
+(ns ^:clj-reload/no-reload neilyio.sound
   {:clj-kondo/config '{:linters {:unresolved-var {:exclude [overtone.live]}
                                  :use {:level :off}}}}
   (:use [overtone.live])
@@ -91,7 +91,6 @@
     (println "Done loading buffers!")
     (println "Current selected buffer: " label)
 
-    (tap> [:sound-module @buffers label sources])
     (let [buffer             (get @buffers label)
           timeline-info-bus  (live/control-bus 8)
           play-info-bus      (live/control-bus 2)
@@ -113,14 +112,20 @@
                           ::timeline-info-bus timeline-info-bus
                           ::play-info-bus play-info-bus})))])))
 
-(defmethod events/handle [:sound :play] [{::keys [playcontrol timeline]}]
-  (live/ctl playcontrol :id timeline :play 1))
+(defmethod events/handle [:sound :play]
+  [{::keys [playcontrol timeline selected-buffer]}]
+  (when selected-buffer
+    (live/ctl playcontrol :id timeline :play 1)))
 
-(defmethod events/handle [:sound :pause] [{::keys [playcontrol timeline]}]
-  (live/ctl playcontrol :id timeline :play 0))
+(defmethod events/handle [:sound :pause]
+  [{::keys [playcontrol timeline selected-buffer]}]
+  (when selected-buffer
+    (live/ctl playcontrol :id timeline :play 0)))
 
-(defmethod events/handle [:sound :play-toggle] [{::keys [playcontrol timeline playing?]}]
-  (live/ctl playcontrol :id timeline :play (if (zero? playing?) 1 0)))
+(defmethod events/handle [:sound :play-toggle]
+  [{::keys [playcontrol timeline playing? selected-buffer]}]
+  (when selected-buffer
+    (live/ctl playcontrol :id timeline :play (if (zero? playing?) 1 0))))
 
 (doseq [event [:loop-beats-4
                :loop-beats-half
@@ -139,5 +144,7 @@
                :select-next-source]]
 
   (defmethod events/handle [:sound event] [{:loop/keys [in out] ::keys [timeline selected-buffer]}]
-    (live/ctl timeline :buffer selected-buffer  :in in :out out)))
+    (when selected-buffer
+      (when in  (live/ctl timeline :buffer selected-buffer :in in))
+      (when out (live/ctl timeline :buffer selected-buffer :out out)))))
 
