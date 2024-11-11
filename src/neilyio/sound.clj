@@ -141,7 +141,8 @@
                :select-prev-speaker
                :select-next-speaker
                :select-prev-source
-               :select-next-source]]
+               :select-next-source
+               :location]]
 
   (defmethod events/handle [:sound event] [{:loop/keys [in out] ::keys [timeline selected-buffer]}]
     (when selected-buffer

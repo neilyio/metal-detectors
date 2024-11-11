@@ -448,5 +448,10 @@
 (defmethod events/handle [:db :create-loop-from-selected] [{::keys [conn]}]
   (create-loop-from-selected! conn))
 
+(defmethod events/handle [:db :location] [{::keys [conn] :keys [event]}]
+  (when-let [id (second event)]
+    (dotimes [_ (mod id 15)]
+      (select-next-source! conn))))
+
 (defmethod events/handle [:db :play-toggle] [s]
   (tap> [:db-default s]))
