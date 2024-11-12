@@ -71,13 +71,13 @@
    - event - event to handle
    Returns updated state with ::conn and ::db added."
   [get-conn set-timeline-info!]
-  (let [db                  (d/db (get-conn))
-        label               (-> (db/selected-speaker db) :speaker/loop :loop/source :source/label)
+  (let [db                 (d/db (get-conn))
+        label              (-> (db/selected-speaker db) :speaker/loop :loop/source :source/label)
         buffer             (cache/get-buffer (:cache/conn (events/get-state)) label)
-          timeline-info-bus  (live/control-bus 8)
-          play-info-bus      (live/control-bus 2)
-          timeline           (timeline :buffer (or buffer 0) :start 0 :state-bus timeline-info-bus)
-          playcontrol        (playcontrol :id (:id timeline) :play 0 :state-bus play-info-bus)]
+        timeline-info-bus  (live/control-bus 8)
+        play-info-bus      (live/control-bus 2)
+        timeline           (timeline :buffer (or buffer 0) :start 0 :state-bus timeline-info-bus)
+        playcontrol        (playcontrol :id (:id timeline) :play 0 :state-bus play-info-bus)]
       [:sound (fn [_]
                 (let [db            (d/db (get-conn))
                       timeline-info (timeline-info timeline-info-bus play-info-bus)
