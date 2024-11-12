@@ -51,8 +51,7 @@
         source  (-> speaker :speaker/loop :loop/source)
         bpm     (:source/bpm source)
         sample  (cache/sample-by-source @cache (-> source :db/id))]
-    (assert (:size sample) (str "no buffer in cache for " (set source)))
-    (assert bpm (str "no bpm in cache for "  source))
+    (when source (assert bpm (str "no bpm in cache for " (:source/label source))))
     {::beat-size (or (some-> (:rate sample) (* 60) (/ bpm) (/ (:size sample))) 0)
      ::conn db
      ::db (d/db db)}))
@@ -356,12 +355,12 @@
 (defn loop-beats-right-01!
   "Shift the selected loop right by 1/10th of a beat"
   [conn beat-size]
-  (shift-loop! conn beat-size 0.1))
+  (shift-loop! conn beat-size 0.01))
 
 (defn loop-beats-left-01!
   "Shift the selected loop left by 1/10th of a beat"
   [conn beat-size]
-  (shift-loop! conn beat-size -0.1))
+  (shift-loop! conn beat-size -0.01))
 
 ;; Resize functions
 (defn loop-beats-4!
@@ -464,5 +463,4 @@
     (dotimes [_ (mod id 15)]
       (select-next-source! conn))))
 
-(defmethod events/handle [:db :play-toggle] [s]
-  (tap> [:db-default s]))
+

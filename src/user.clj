@@ -18,10 +18,14 @@
 #_(comment
     (clj-reload.core/reload)
     (cache/count-buffers @cache/conn)
+    (cache/timeline-by-speaker @cache/conn 11)
+    (cache/all-timelines @cache/conn)
+    (cache/q  '[:find ?e :in $ ?speaker-id
+                :where [?e :timeline/speaker ?speaker-id]]
+              @cache/conn 1)
 
     (cache/q '[:find ?buffer ?source :where [?e :buffer/sample ?buffer] [?e :buffer/source ?source]] @cache/conn)
     (let [k (cache/q '[:find ?buffer . :where [?e :buffer/sample ?buffer]] @cache/conn)])
-
 
     (require '[datascript.core :as ds])
     (let [db      (d/db (db/get-conn))
@@ -46,7 +50,6 @@
                           selected-loop (-> (db/selected-speaker db) :speaker/loop)
                           label         (-> selected-loop :loop/source :source/label)
                           buffer        (get @buffers label)]
-                      (tap> [:sound-module buffer label selected-loop timeline-info])
                       (set-timeline-info! timeline-info)
                       (merge timeline-info
                              selected-loop
@@ -60,8 +63,11 @@
 #_(comment
     (require '[clojure.java.io :as io])
 
-    []
     (events/handle  {:module :db :event [:select-next-source] :state repl/state})
+
+    (cache/all-timelines @cache/conn)
+    (cache/count-buffers @cache/conn)
+    (cache/q '[:find ?e :where [?e :timeline/looper]] @cache/conn)
 
     (db/transact! repl/state [{:loop/in 0 :loop/out 1}])
     (db/transact! repl/state [{:selected/loop 16}])

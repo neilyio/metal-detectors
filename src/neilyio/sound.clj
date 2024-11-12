@@ -1,4 +1,4 @@
-(ns ^:clj-reload/no-reload neilyio.sound
+(ns neilyio.sound
   {:clj-kondo/config '{:linters {:unresolved-var {:exclude [overtone.live]}
                                  :use {:level :off}}}}
   (:use [overtone.live])
@@ -71,42 +71,48 @@
    - event - event to handle
    Returns updated state with ::conn and ::db added."
   [db cache]
-  (let [looper-info (live/control-bus 8)
-        player-info (live/control-bus 2)
-        looper      (timeline :buffer 0 :start 0 :state-bus looper-info)
-        player      (playcontrol :id (:id looper) :play 0 :state-bus player-info)]
-    (cache/timeline! cache *ns* looper player looper-info player-info)))
+  (doseq [speaker     (db/find-all-speakers (d/db db))]
+    (let [looper-info (live/control-bus 8)
+          player-info (live/control-bus 2)
+          looper      (timeline :buffer 0 :start 0 :state-bus looper-info)
+          player      (playcontrol :id (:id looper) :play 0 :state-bus player-info)]
+      (cache/timeline! cache (:db/id speaker) looper player looper-info player-info))))
 
 (defn ctx [db cache]
-  (let [timeline-info (timeline-info (cache/time-bus @cache) (cache/info-bus @cache))
-        speaker   (db/selected-speaker (d/db db))
-        loop      (-> speaker :speaker/loop)
-        source-id (-> loop :loop/source :db/id)
-        sample    (cache/sample-by-source @cache source-id)
-        timeline  (cache/timeline-by-speaker @cache (:db/id speaker))]
-    (assert timeline (str "could not load timeline from cache for speaker" speaker))
-    (merge timeline-info
-           loop
-           {::selected-sample sample
-            ::timeline (:timeline/looper timeline)
-            ::playcontrol (:timeline/player timeline)
-            ::timeline-info-bus (:timeline/looper-info @cache)
-            ::play-info-bus (:timeline/player-info @cache)})))
+  (let [speaker       (db/selected-speaker (d/db db))
+        loop          (-> speaker :speaker/loop)
+        source-id     (-> loop :loop/source :db/id)
+        sample        (cache/sample-by-source @cache source-id)
+        timeline      (cache/timeline-by-speaker @cache (:db/id speaker))
+        _ (assert timeline (str "could not load timeline from cache for speaker" speaker))
+        looper        (:timeline/looper timeline)
+        player        (:timeline/player timeline)
+        looper-status (:timeline/looper-status timeline)
+        player-status (:timeline/player-status timeline)
+        timeline-info (timeline-info looper-status player-status)]
+    (merge
+     timeline-info
+     (select-keys loop [:loop/in :loop/out])
+     {::selected-sample   sample
+      ::all-players       (map :timeline/player (cache/all-timelines @cache))
+      ::all-loopers       (map :timeline/looper (cache/all-timelines @cache))
+      ::selected-looper   looper
+      ::selected-player   player})))
 
 (defmethod events/handle [:sound :play]
-  [{::keys [playcontrol timeline selected-sample]}]
+  [{::keys [selected-player selected-looper selected-sample]}]
   (when selected-sample
-    (live/ctl playcontrol :id timeline :play 1)))
+    (live/ctl selected-player :id selected-looper :play 1)))
 
 (defmethod events/handle [:sound :pause]
-  [{::keys [playcontrol timeline selected-sample]}]
+  [{::keys [selected-player selected-looper selected-sample]}]
   (when selected-sample
-    (live/ctl playcontrol :id timeline :play 0)))
+    (live/ctl selected-player :id selected-looper :play 0)))
 
 (defmethod events/handle [:sound :play-toggle]
-  [{::keys [playcontrol timeline playing? selected-sample]}]
-  (when selected-sample
-    (live/ctl playcontrol :id timeline :play (if (zero? playing?) 1 0))))
+  [{::keys [playing? all-players all-loopers]}]
+  (doseq [[player looper] (map vector all-players all-loopers)]
+    (live/ctl player :id looper :play (if (zero? playing?) 1 0))))
 
 (doseq [event [:loop-beats-4
                :loop-beats-half
@@ -125,8 +131,8 @@
                :select-next-source
                :location]]
 
-  (defmethod events/handle [:sound event] [{:loop/keys [in out] ::keys [timeline selected-sample]}]
+  (defmethod events/handle [:sound event] [{:loop/keys [in out] ::keys [selected-looper selected-sample]}]
     (when selected-sample
-      (when in  (live/ctl timeline :buffer selected-sample :in in))
-      (when out (live/ctl timeline :buffer selected-sample :out out)))))
+      (when in  (live/ctl selected-looper :buffer selected-sample :in in))
+      (when out (live/ctl selected-looper :buffer selected-sample :out out)))))
 

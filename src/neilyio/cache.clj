@@ -9,15 +9,12 @@
 (declare bytes->sample)
 
 (def all-sources       (partial dl/q '[:find [(pull ?e [*]) ...] :where [?e :source/bytes]]))
+(def all-timelines     (partial d/q  '[:find [(pull ?e [*]) ...] :where [?e :timeline/speaker]]))
 (def count-buffers     (partial d/q  '[:find (count ?e) . :where [?e :buffer/sample]]))
 (def sample-by-source  (partial d/q  '[:find ?buffer . :in $ ?source-id
                                        :where [?e :buffer/source ?source-id] [?e :buffer/sample ?buffer]]))
-(def time-bus (partial d/q '[:find ?bus . :where [_ :bus/time ?bus]]))
-(def info-bus (partial d/q '[:find ?bus . :where [_ :bus/info ?bus]]))
-(def timeline-bus (partial d/q '[:find ?bus . :where [_ :bus/timeline ?bus]]))
-(def playcontrol-bus (partial d/q '[:find ?bus . :where [_ :bus/playcontrol ?bus]]))
 
-(def timeline-by-speaker (partial d/q '[:find [(pull ?e [*]) ...] :in $ ?speaker-id
+(def timeline-by-speaker (partial d/q '[:find (pull ?e [*]) . :in $ ?speaker-id
                                         :where [?e :timeline/speaker ?speaker-id]]))
 
 (defn buffer! [conn id bytes]
@@ -38,9 +35,9 @@
       (fs/write-bytes path bytes)
       (live/sample path))))
 
-(def conn (d/create-conn))
+(defonce conn (d/create-conn))
 
-(def ^:export q d/q)
+(def ^:export q (comp d/q))
 
 (def ^:export transact! d/transact!)
 

@@ -27,7 +27,6 @@
 (defn dev-data-eval [in]
   (try
     (assert in "no input to dev-data-eval")
-    ;; Manually handle repl events.
     (into {}
           (for [[key ctx] [[:db    #'db/ctx]
                            [:cache #'cache/ctx]
