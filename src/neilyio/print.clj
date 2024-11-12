@@ -3,9 +3,10 @@
             [datalevin.core :as d]
             [neilyio.db :as db]))
 
-(defn module [get-conn]
-  [:print (fn [state]
-            (assoc state ::conn (get-conn) ::db (d/db (get-conn))))])
+(defn init! [_ _])
+
+(defn ctx [db cache]
+  {::conn db ::db (d/db db) ::cache cache})
 
 ;; Fixed pull patterns
 (def basic-pattern

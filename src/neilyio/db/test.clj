@@ -20,18 +20,6 @@
   (is (not (nil? *test-db*)) "The test database connection should not be nil")
   (is (d/conn? *test-db*) "The test database connection should be a valid Datalevin connection"))
 
-(deftest module-test
-  (testing "module initialization and handler"
-    (let [conn *test-db*
-          [_ handler] (db/module (constantly conn))
-          initial-state {}]
-
-;; Test that handler returns correct state map
-      (let [new-state (handler initial-state)]
-        (is (d/conn? (:neilyio.db/conn new-state)) "Connection should be in state")
-        (is (= conn (:neilyio.db/conn new-state)) "Connection should be in state")
-        (is (d/db? (:neilyio.db/db new-state)) "Database value should be in state")))))
-
 (deftest ensure-defaults-test
   (let [conn *test-db*]
 

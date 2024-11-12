@@ -15,16 +15,6 @@
 
 (use-fixtures :each db-fixture)
 
-(deftest test-module
-  (testing "module function returns event handler"
-    (let [[_ handler] (print/module (constantly *test-db*))]
-      (is (fn? handler) "Returns a function")
-      (testing "handler returns state unchanged"
-        (let [initial-state {:some "state"}
-              result (handler initial-state)]
-          (is (set/subset? (set initial-state) (set result))
-              "Returns state unchanged"))))))
-
 (deftest test-speaker-event-patterns
   (testing "event patterns for various operations"
     (let [conn *test-db*

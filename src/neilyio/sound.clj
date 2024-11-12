@@ -62,7 +62,7 @@
      ::loop-start       loop-start
      ::loop-end         loop-end}))
 
-(defn module
+(defn init!
   "Return an event handler function that takes state and returns new state.
    Args:
    - conn - database connection to use
@@ -70,29 +70,28 @@
    - state - current application state
    - event - event to handle
    Returns updated state with ::conn and ::db added."
-  [get-conn set-timeline-info!]
-  (let [db                 (d/db (get-conn))
-        source-id          (-> (db/selected-speaker db) :speaker/loop :loop/source :db/id)
-        buffer             (cache/get-buffer (:cache/conn (events/get-state)) source-id)
-        timeline-info-bus  (live/control-bus 8)
+  [_ cache]
+  (let [timeline-info-bus  (live/control-bus 8)
         play-info-bus      (live/control-bus 2)
-        timeline           (timeline :buffer (or buffer 0) :start 0 :state-bus timeline-info-bus)
+        timeline           (timeline :buffer 0 :start 0 :state-bus timeline-info-bus)
         playcontrol        (playcontrol :id (:id timeline) :play 0 :state-bus play-info-bus)]
-      [:sound (fn [_]
-                (let [db            (d/db (get-conn))
-                      timeline-info (timeline-info timeline-info-bus play-info-bus)
-                      selected-loop (-> (db/selected-speaker db) :speaker/loop)
-                      source-id     (-> selected-loop :loop/source :db/id)
-                      buffer        (cache/get-buffer (:cache/conn (events/get-state)) source-id)]
-                  (tap> [:sound-module buffer label selected-loop timeline-info])
-                  (set-timeline-info! timeline-info)
-                  (merge timeline-info
-                         selected-loop
-                         {::selected-buffer buffer
-                          ::timeline timeline
-                          ::playcontrol playcontrol
-                          ::timeline-info-bus timeline-info-bus
-                          ::play-info-bus play-info-bus})))])))
+    (cache/time-bus! cache timeline-info-bus)
+    (cache/info-bus! cache play-info-bus)
+    (cache/timeline-bus! cache timeline)
+    (cache/playcontrol-bus! cache playcontrol)))
+
+(defn ctx [db cache]
+  (let [timeline-info (timeline-info (cache/time-bus @cache) (cache/info-bus @cache))
+        selected-loop (-> (db/selected-speaker (d/db db)) :speaker/loop)
+        source-id     (-> selected-loop :loop/source :db/id)
+        buffer        (cache/buffer-by-source @cache source-id)]
+    (merge timeline-info
+           selected-loop
+           {::selected-buffer buffer
+            ::timeline (cache/timeline-bus @cache)
+            ::playcontrol (cache/playcontrol-bus @cache)
+            ::timeline-info-bus (cache/time-bus @cache)
+            ::play-info-bus (cache/info-bus @cache)})))
 
 (defmethod events/handle [:sound :play]
   [{::keys [playcontrol timeline selected-buffer]}]

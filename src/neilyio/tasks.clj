@@ -32,9 +32,9 @@
       (println code))
     (.close procin)
     (let [result (deref proc)]
-      (when-not (zero? (:exit result))
-        (throw (ex-info "nc eval error" result)))
-      (:out result))))
+      (if (zero? (:exit result))
+        (:out result)
+        (println "nc eval error: " result)))))
 
 (defn ^:export print-event [out]
   (let [edn (edn/read-string out)]

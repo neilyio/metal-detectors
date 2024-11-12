@@ -46,6 +46,7 @@
          test-cmd (-> (nc repl-port
                           '(require 'clojure.test)
                           '(require 'neilyio.db.test)
+                          '(require 'neilyio.cache.test)
                           '(require 'neilyio.db.backfill)
                           '(require 'neilyio.repl.test)
                           '(require 'neilyio.print.test)
@@ -57,6 +58,7 @@
                              (clojure.test/run-tests
                               'neilyio.repl.test
                               'neilyio.db.test
+                              'neilyio.cache.test
                               'neilyio.db.backfill
                               'neilyio.print.test)))
                       (println))

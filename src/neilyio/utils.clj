@@ -3,8 +3,18 @@
    [clojure.edn :as edn]
    [clojure.java.io]
    [clojure.walk]
+   [portal.api]
    [babashka.fs :as fs]
    [neilyio.events :as events]))
+
+(defn portal-init
+  "Initialize Portal if not already running.
+   Returns the Portal instance."
+  []
+  (when (zero? (count (portal.api/sessions)))
+    (let [portal (portal.api/open {:app false})]
+      (add-tap (resolve 'portal.api/submit))
+      portal)))
 
 (defn clamp [n]
   (-> n (min 1) (max 0)))

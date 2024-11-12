@@ -29,7 +29,7 @@
 
              :selected/speaker {:db/valueType :db.type/ref :db/unique :db.unique/value}})
 
-(defn module
+(defn init!
   "Return an event handler function that takes state and returns new state.
    Args:
    - conn - database connection to use
@@ -37,24 +37,29 @@
    - state - current application state
    - event - event to handle
    Returns updated state with ::conn and ::db added."
-  [get-conn]
-  (let [sources (d/q '[:find ?l :where [?e :source/label ?l]] (d/db (get-conn)))]
+  [db _]
+  (let [sources (d/q '[:find ?l :where [?e :source/label ?l]] (d/db db))]
     (println "Loaded tracks:")
     (doseq [[label] sources] (println label))
-    (println))
-  [:db (fn [state]
-         (let [conn (get-conn)
-               db (d/db conn)
-               {:neilyio.sound/keys [sample-rate total-frames]} state
-               bpm 123
-               beat-size (some-> sample-rate (* 60) (/ bpm) (/ total-frames))]
-           (assoc state
-                  ::beat-size beat-size
-                  ::conn conn
-                  ::db db)))])
+    (println)))
 
-(defn get-conn []
-  (d/get-conn config/db-path schema))
+(defn ctx [db _]
+  (let [{:neilyio.sound/keys [sample-rate total-frames]} ctx
+        bpm 123
+        beat-size (some-> sample-rate (* 60) (/ bpm) (/ total-frames))]
+    {::beat-size (or beat-size 0)
+     ::conn db
+     ::db (d/db db)}))
+
+(def ^:dynamic conn nil)
+
+(defn get-conn
+  "Initialized a thread-local conn variable."
+  []
+  (when (or (nil? conn) (d/closed? conn))
+    #_{:clj-kondo/ignore [:inline-def]}
+    (def conn (d/get-conn config/db-path schema)))
+  conn)
 
 (defn delete-all-loops!
   "Deletes all loop entities from the database, including removing references from speakers."

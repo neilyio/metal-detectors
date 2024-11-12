@@ -2,6 +2,7 @@
   {:clj-kondo/ignore [:unused-namespace :use]}
   (:require [neilyio.tasks]
             [neilyio.sound :as sound]
+            [neilyio.cache :as cache]
             [neilyio.db :as db]
             [overtone.linter]
             [neilyio.events :as events]
@@ -11,7 +12,44 @@
             [clj-reload.core]
             [portal.api]
             [babashka.fs :as fs]
+            [datascript.core :as ds]
             [datalevin.core :as d]))
+
+#_(comment
+    (cache/q '[:find ?b . :where [_ :buffer/data ?b]] @cache/conn)
+    (require '[datascript.core :as ds])
+    (let [db      (d/db (db/get-conn))
+          buffers (atom {})
+          label   (-> (db/selected-speaker db) :speaker/loop :loop/source :source/label)
+          sources (db/find-all-sources db)
+
+          conn (ds/create-conn)]
+      (ds/transact! conn [{:name "neil"}])
+      (doseq [{:source/keys [label bytes]} (take 2 sources)]
+        (ds/transact! conn [{:bytes (sound/bytes->sample bytes)}]))
+      (ds/q '[:find ?e ?n :in  :where [?e :bytes ?n]] @conn)
+
+      #_(let [buffer             (get @buffers label)
+              timeline-info-bus  (live/control-bus 8)
+              play-info-bus      (live/control-bus 2)
+              timeline           (timeline :buffer (or buffer 0) :start 0 :state-bus timeline-info-bus)
+              playcontrol        (playcontrol :id (:id timeline) :play 0 :state-bus play-info-bus)]
+          [:sound (fn [_]
+                    (let [db            (d/db (get-conn))
+                          timeline-info (timeline-info timeline-info-bus play-info-bus)
+                          selected-loop (-> (db/selected-speaker db) :speaker/loop)
+                          label         (-> selected-loop :loop/source :source/label)
+                          buffer        (get @buffers label)]
+                      (tap> [:sound-module buffer label selected-loop timeline-info])
+                      (set-timeline-info! timeline-info)
+                      (merge timeline-info
+                             selected-loop
+                             {::selected-buffer buffer
+                              ::timeline timeline
+                              ::playcontrol playcontrol
+                              ::timeline-info-bus timeline-info-bus
+                              ::play-info-bus play-info-bus})))]))
+    nil)
 
 #_(comment
     (require '[clojure.java.io :as io])
@@ -306,7 +344,7 @@
                     main-bus (select idx @audio-buses)
 
           ;; Select adjacent buses (ignoring nil values)
-                    left-bus (if left (select left @audio-buses) 0)
+                    left-bus (if left   (select left @audio-buses) 0)
                     right-bus (if right (select right @audio-buses) 0)
                     above-bus (if above (select above @audio-buses) 0)
                     below-bus (if below (select below @audio-buses) 0)
