@@ -3,8 +3,8 @@
                                  :use {:level :off}}}}
   (:use [overtone.live])
   (:require
-   [babashka.fs :as fs]
    [datalevin.core :as d]
+   [neilyio.cache :as cache]
    [neilyio.db :as db]
    [neilyio.events :as events]
    [overtone.live :as live]))
@@ -62,12 +62,6 @@
      ::loop-start       loop-start
      ::loop-end         loop-end}))
 
-(defn bytes->sample [bytes]
-  (fs/with-temp-dir [dir {}]
-    (let [path (str dir "/" (random-uuid))]
-      (fs/write-bytes path bytes)
-      (live/sample path))))
-
 (defn module
   "Return an event handler function that takes state and returns new state.
    Args:
@@ -77,21 +71,9 @@
    - event - event to handle
    Returns updated state with ::conn and ::db added."
   [get-conn set-timeline-info!]
-  (let [db      (d/db (get-conn))
-        buffers (atom {})
-        label   (-> (db/selected-speaker db) :speaker/loop :loop/source :source/label)
-        sources (db/find-all-sources db)]
-
-    ;; Print some comments so you can see what's taking so long.
-    (println "Loading" (count sources) "sound files into memory, please wait...")
-    (doseq [{:source/keys [label bytes]} sources]
-      (print (str (count @buffers) "... "))
-      (flush)
-      (swap! buffers assoc label (bytes->sample bytes)))
-    (println "Done loading buffers!")
-    (println "Current selected buffer: " label)
-
-    (let [buffer             (get @buffers label)
+  (let [db                  (d/db (get-conn))
+        label               (-> (db/selected-speaker db) :speaker/loop :loop/source :source/label)
+        buffer             (cache/get-buffer (:cache/conn (events/get-state)) label)
           timeline-info-bus  (live/control-bus 8)
           play-info-bus      (live/control-bus 2)
           timeline           (timeline :buffer (or buffer 0) :start 0 :state-bus timeline-info-bus)
