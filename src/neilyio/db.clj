@@ -1,9 +1,12 @@
 (ns neilyio.db
   (:require
    [datalevin.core :as d]
+   [neilyio.cache :as cache]
    [neilyio.config :as config]
    [neilyio.events :as events]
    [neilyio.utils :refer [clamp]]))
+
+(declare selected-speaker)
 
 ;; A few things to remember that cost you a lot of time:
 ;; -- It's :db/valueType, not :db.valueType
@@ -43,11 +46,14 @@
     (doseq [[label] sources] (println label))
     (println)))
 
-(defn ctx [db _]
-  (let [{:neilyio.sound/keys [sample-rate total-frames]} ctx
-        bpm 123
-        beat-size (some-> sample-rate (* 60) (/ bpm) (/ total-frames))]
-    {::beat-size (or beat-size 0)
+(defn ctx [db cache]
+  (let [speaker (selected-speaker (d/db db))
+        source  (-> speaker :speaker/loop :loop/source)
+        bpm     (:source/bpm source)
+        sample  (cache/sample-by-source @cache (-> source :db/id))]
+    (assert (:size sample) (str "no buffer in cache for " (set source)))
+    (assert bpm (str "no bpm in cache for "  source))
+    {::beat-size (or (some-> (:rate sample) (* 60) (/ bpm) (/ (:size sample))) 0)
      ::conn db
      ::db (d/db db)}))
 

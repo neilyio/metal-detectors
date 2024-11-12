@@ -84,28 +84,28 @@
   (let [timeline-info (timeline-info (cache/time-bus @cache) (cache/info-bus @cache))
         selected-loop (-> (db/selected-speaker (d/db db)) :speaker/loop)
         source-id     (-> selected-loop :loop/source :db/id)
-        buffer        (cache/buffer-by-source @cache source-id)]
+        sample        (cache/sample-by-source @cache source-id)]
     (merge timeline-info
            selected-loop
-           {::selected-buffer buffer
+           {::selected-sample sample
             ::timeline (cache/timeline-bus @cache)
             ::playcontrol (cache/playcontrol-bus @cache)
             ::timeline-info-bus (cache/time-bus @cache)
             ::play-info-bus (cache/info-bus @cache)})))
 
 (defmethod events/handle [:sound :play]
-  [{::keys [playcontrol timeline selected-buffer]}]
-  (when selected-buffer
+  [{::keys [playcontrol timeline selected-sample]}]
+  (when selected-sample
     (live/ctl playcontrol :id timeline :play 1)))
 
 (defmethod events/handle [:sound :pause]
-  [{::keys [playcontrol timeline selected-buffer]}]
-  (when selected-buffer
+  [{::keys [playcontrol timeline selected-sample]}]
+  (when selected-sample
     (live/ctl playcontrol :id timeline :play 0)))
 
 (defmethod events/handle [:sound :play-toggle]
-  [{::keys [playcontrol timeline playing? selected-buffer]}]
-  (when selected-buffer
+  [{::keys [playcontrol timeline playing? selected-sample]}]
+  (when selected-sample
     (live/ctl playcontrol :id timeline :play (if (zero? playing?) 1 0))))
 
 (doseq [event [:loop-beats-4
@@ -125,8 +125,8 @@
                :select-next-source
                :location]]
 
-  (defmethod events/handle [:sound event] [{:loop/keys [in out] ::keys [timeline selected-buffer]}]
-    (when selected-buffer
-      (when in  (live/ctl timeline :buffer selected-buffer :in in))
-      (when out (live/ctl timeline :buffer selected-buffer :out out)))))
+  (defmethod events/handle [:sound event] [{:loop/keys [in out] ::keys [timeline selected-sample]}]
+    (when selected-sample
+      (when in  (live/ctl timeline :buffer selected-sample :in in))
+      (when out (live/ctl timeline :buffer selected-sample :out out)))))
 

@@ -16,7 +16,13 @@
             [datalevin.core :as d]))
 
 #_(comment
-    (cache/q '[:find ?b . :where [_ :buffer/data ?b]] @cache/conn)
+    (clj-reload.core/reload)
+    (cache/count-buffers @cache/conn)
+
+    (cache/q '[:find ?buffer ?source :where [?e :buffer/sample ?buffer] [?e :buffer/source ?source]] @cache/conn)
+    (let [k (cache/q '[:find ?buffer . :where [?e :buffer/sample ?buffer]] @cache/conn)])
+
+
     (require '[datascript.core :as ds])
     (let [db      (d/db (db/get-conn))
           buffers (atom {})
@@ -54,6 +60,7 @@
 #_(comment
     (require '[clojure.java.io :as io])
 
+    []
     (events/handle  {:module :db :event [:select-next-source] :state repl/state})
 
     (db/transact! repl/state [{:loop/in 0 :loop/out 1}])

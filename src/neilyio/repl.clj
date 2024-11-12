@@ -27,11 +27,13 @@
 (defn dev-data-eval [in]
   (try
     (assert in "no input to dev-data-eval")
+    ;; Manually handle repl events.
     (into {}
-          (for [[key ctx] [[:db    db/ctx]
-                           [:cache cache/ctx]
-                           [:sound sound/ctx]
-                           [:print print/ctx]]
+          (for [[key ctx] [[:db    #'db/ctx]
+                           [:cache #'cache/ctx]
+                           [:sound #'sound/ctx]
+                           [:print #'print/ctx]
+                           [:repl  (constantly {})]]
                 :let [out (-> (ctx (db/get-conn) cache/conn)
                               (assoc :module key :event in)
                               (events/handle))]]
