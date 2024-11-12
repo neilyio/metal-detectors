@@ -70,28 +70,28 @@
    - state - current application state
    - event - event to handle
    Returns updated state with ::conn and ::db added."
-  [_ cache]
-  (let [timeline-info-bus  (live/control-bus 8)
-        play-info-bus      (live/control-bus 2)
-        timeline           (timeline :buffer 0 :start 0 :state-bus timeline-info-bus)
-        playcontrol        (playcontrol :id (:id timeline) :play 0 :state-bus play-info-bus)]
-    (cache/time-bus! cache timeline-info-bus)
-    (cache/info-bus! cache play-info-bus)
-    (cache/timeline-bus! cache timeline)
-    (cache/playcontrol-bus! cache playcontrol)))
+  [db cache]
+  (let [looper-info (live/control-bus 8)
+        player-info (live/control-bus 2)
+        looper      (timeline :buffer 0 :start 0 :state-bus looper-info)
+        player      (playcontrol :id (:id looper) :play 0 :state-bus player-info)]
+    (cache/timeline! cache *ns* looper player looper-info player-info)))
 
 (defn ctx [db cache]
   (let [timeline-info (timeline-info (cache/time-bus @cache) (cache/info-bus @cache))
-        selected-loop (-> (db/selected-speaker (d/db db)) :speaker/loop)
-        source-id     (-> selected-loop :loop/source :db/id)
-        sample        (cache/sample-by-source @cache source-id)]
+        speaker   (db/selected-speaker (d/db db))
+        loop      (-> speaker :speaker/loop)
+        source-id (-> loop :loop/source :db/id)
+        sample    (cache/sample-by-source @cache source-id)
+        timeline  (cache/timeline-by-speaker @cache (:db/id speaker))]
+    (assert timeline (str "could not load timeline from cache for speaker" speaker))
     (merge timeline-info
-           selected-loop
+           loop
            {::selected-sample sample
-            ::timeline (cache/timeline-bus @cache)
-            ::playcontrol (cache/playcontrol-bus @cache)
-            ::timeline-info-bus (cache/time-bus @cache)
-            ::play-info-bus (cache/info-bus @cache)})))
+            ::timeline (:timeline/looper timeline)
+            ::playcontrol (:timeline/player timeline)
+            ::timeline-info-bus (:timeline/looper-info @cache)
+            ::play-info-bus (:timeline/player-info @cache)})))
 
 (defmethod events/handle [:sound :play]
   [{::keys [playcontrol timeline selected-sample]}]
