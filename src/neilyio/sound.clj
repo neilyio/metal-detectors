@@ -72,8 +72,8 @@
    Returns updated state with ::conn and ::db added."
   [get-conn set-timeline-info!]
   (let [db                 (d/db (get-conn))
-        label              (-> (db/selected-speaker db) :speaker/loop :loop/source :source/label)
-        buffer             (cache/get-buffer (:cache/conn (events/get-state)) label)
+        source-id          (-> (db/selected-speaker db) :speaker/loop :loop/source :db/id)
+        buffer             (cache/get-buffer (:cache/conn (events/get-state)) source-id)
         timeline-info-bus  (live/control-bus 8)
         play-info-bus      (live/control-bus 2)
         timeline           (timeline :buffer (or buffer 0) :start 0 :state-bus timeline-info-bus)
@@ -82,8 +82,8 @@
                 (let [db            (d/db (get-conn))
                       timeline-info (timeline-info timeline-info-bus play-info-bus)
                       selected-loop (-> (db/selected-speaker db) :speaker/loop)
-                      label         (-> selected-loop :loop/source :source/label)
-                      buffer        (get @buffers label)]
+                      source-id     (-> selected-loop :loop/source :db/id)
+                      buffer        (cache/get-buffer (:cache/conn (events/get-state)) source-id)]
                   (tap> [:sound-module buffer label selected-loop timeline-info])
                   (set-timeline-info! timeline-info)
                   (merge timeline-info
