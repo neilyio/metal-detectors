@@ -321,7 +321,13 @@
                      (d/db conn) 
                      current 
                      #(< (:speaker/y %2) (:speaker/y %1)))]
-      (d/transact! conn [{:selected/speaker (:db/id north)}])
+      ;; First retract existing selection
+      (when-let [selected-entity (ffirst (d/q '[:find ?e
+                                               :where [?e :selected/speaker]]
+                                             (d/db conn)))]
+        (d/transact! conn [[:db/retract selected-entity :selected/speaker (:db/id current)]]))
+      ;; Then add new selection
+      (d/transact! conn [{:db/id (d/tempid -1) :selected/speaker (:db/id north)}])
       north)))
 
 (defn select-south!
@@ -333,7 +339,13 @@
                      (d/db conn) 
                      current 
                      #(> (:speaker/y %2) (:speaker/y %1)))]
-      (d/transact! conn [{:selected/speaker (:db/id south)}])
+      ;; First retract existing selection
+      (when-let [selected-entity (ffirst (d/q '[:find ?e
+                                               :where [?e :selected/speaker]]
+                                             (d/db conn)))]
+        (d/transact! conn [[:db/retract selected-entity :selected/speaker (:db/id current)]]))
+      ;; Then add new selection
+      (d/transact! conn [{:db/id (d/tempid -1) :selected/speaker (:db/id south)}])
       south)))
 
 (defn select-east!
@@ -345,7 +357,13 @@
                     (d/db conn) 
                     current 
                     #(> (:speaker/x %2) (:speaker/x %1)))]
-      (d/transact! conn [{:selected/speaker (:db/id east)}])
+      ;; First retract existing selection
+      (when-let [selected-entity (ffirst (d/q '[:find ?e
+                                               :where [?e :selected/speaker]]
+                                             (d/db conn)))]
+        (d/transact! conn [[:db/retract selected-entity :selected/speaker (:db/id current)]]))
+      ;; Then add new selection
+      (d/transact! conn [{:db/id (d/tempid -1) :selected/speaker (:db/id east)}])
       east)))
 
 (defn select-west!
@@ -357,7 +375,13 @@
                     (d/db conn) 
                     current 
                     #(< (:speaker/x %2) (:speaker/x %1)))]
-      (d/transact! conn [{:selected/speaker (:db/id west)}])
+      ;; First retract existing selection
+      (when-let [selected-entity (ffirst (d/q '[:find ?e
+                                               :where [?e :selected/speaker]]
+                                             (d/db conn)))]
+        (d/transact! conn [[:db/retract selected-entity :selected/speaker (:db/id current)]]))
+      ;; Then add new selection
+      (d/transact! conn [{:db/id (d/tempid -1) :selected/speaker (:db/id west)}])
       west)))
 
 (defn- shift-loop!
