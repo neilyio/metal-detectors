@@ -1,4 +1,22 @@
 (ns neilyio.db
+
+(comment
+  ;; Create a 6x10 grid of speakers if they don't exist yet
+  (let [conn (get-conn)
+        db (d/db conn)
+        existing-count (count (d/q '[:find ?e 
+                                   :where [?e :speaker/created-at]] 
+                                 db))]
+    (when (< existing-count 60)
+      (doseq [x (range 6)
+              y (range 10)
+              :let [speaker-x (* x 10)
+                    speaker-y (* y 10)]]
+        (d/transact! conn [{:speaker/x speaker-x
+                           :speaker/y speaker-y 
+                           :speaker/created-at (System/currentTimeMillis)}])))))
+
+(ns neilyio.db
   (:require
    [datalevin.core :as d]
    [neilyio.cache :as cache]
