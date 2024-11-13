@@ -484,6 +484,65 @@
                          final-db))
             "Should have no speakers with loops after deletion")))))
 
+(deftest cardinal-direction-selection-tests
+  (testing "selecting speakers in cardinal directions"
+    (let [conn *test-db*
+          ;; Create a grid of test speakers
+          center-tx (d/transact! conn [{:speaker/x 0
+                                        :speaker/y 0
+                                        :speaker/created-at 1000}])
+          north-tx (d/transact! conn [{:speaker/x 0
+                                       :speaker/y -1
+                                       :speaker/created-at 1001}])
+          south-tx (d/transact! conn [{:speaker/x 0
+                                       :speaker/y 1
+                                       :speaker/created-at 1002}])
+          east-tx (d/transact! conn [{:speaker/x 1
+                                      :speaker/y 0
+                                      :speaker/created-at 1003}])
+          west-tx (d/transact! conn [{:speaker/x -1
+                                      :speaker/y 0
+                                      :speaker/created-at 1004}])
+          center-id (get-in center-tx [:tx-data 0 :e])
+          north-id (get-in north-tx [:tx-data 0 :e])
+          south-id (get-in south-tx [:tx-data 0 :e])
+          east-id (get-in east-tx [:tx-data 0 :e])
+          west-id (get-in west-tx [:tx-data 0 :e])]
+
+      ;; Select center speaker as starting point
+      (d/transact! conn [{:selected/speaker center-id}])
+
+      (testing "selecting north speaker"
+        (let [result (db/select-north! conn)
+              selected (db/selected-speaker (d/db conn))]
+          (is (= north-id (:db/id result)) "Should return north speaker")
+          (is (= north-id (:db/id selected)) "Should select north speaker")))
+
+      (testing "selecting south speaker from north"
+        (let [result (db/select-south! conn)
+              selected (db/selected-speaker (d/db conn))]
+          (is (= center-id (:db/id result)) "Should return center speaker")
+          (is (= center-id (:db/id selected)) "Should select center speaker")))
+
+      (testing "selecting east speaker from center"
+        (let [result (db/select-east! conn)
+              selected (db/selected-speaker (d/db conn))]
+          (is (= east-id (:db/id result)) "Should return east speaker")
+          (is (= east-id (:db/id selected)) "Should select east speaker")))
+
+      (testing "selecting west speaker from east"
+        (let [result (db/select-west! conn)
+              selected (db/selected-speaker (d/db conn))]
+          (is (= center-id (:db/id result)) "Should return center speaker")
+          (is (= center-id (:db/id selected)) "Should select center speaker")))
+
+      (testing "no speaker in direction"
+        ;; Select north speaker
+        (d/transact! conn [{:selected/speaker north-id}])
+        (is (nil? (db/select-north! conn)) "Should return nil when no speaker north")
+        (let [selected (db/selected-speaker (d/db conn))]
+          (is (= north-id (:db/id selected)) "Should not change selection"))))))
+
 (deftest loop-manipulation-tests
   (testing "loop manipulation functions"
     (let [conn *test-db*
@@ -550,9 +609,9 @@
       (testing "shifting right by 0.1 beats"
         (db/loop-beats-right-01! conn beat-size)
         (let [updated-loop (d/entity (d/db conn) (:e loop1))]
-          (is (= 0.025 (:loop/in updated-loop))
+          (is (= 0.0025 (:loop/in updated-loop))
               "In point should shift right by 1/10th beat")
-          (is (= 0.025 (:loop/out updated-loop))
+          (is (= 0.0025 (:loop/out updated-loop))
               "Out point should shift right by 1/10th beat")))
 
       (testing "shifting left by 0.1 beats - should clamp to 0.0"
