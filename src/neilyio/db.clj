@@ -299,6 +299,67 @@
       (d/transact! conn [[:db/retract [:selected/speaker selected-speaker-id] :selected/speaker selected-speaker-id]])
       true)))
 
+(defn- find-nearest-cardinal
+  "Helper function to find the nearest speaker in a given direction.
+   pred-fn should be a function that takes two speakers and returns true if the second
+   is in the desired direction from the first."
+  [db current-speaker pred-fn]
+  (when current-speaker
+    (let [speakers (find-all-speakers db)
+          valid-speakers (filter #(pred-fn current-speaker %) speakers)]
+      (when (seq valid-speakers)
+        (apply min-key #(+ (Math/pow (- (:speaker/x %) (:speaker/x current-speaker)) 2)
+                          (Math/pow (- (:speaker/y %) (:speaker/y current-speaker)) 2))
+               valid-speakers)))))
+
+(defn select-north!
+  "Selects the nearest speaker to the north of the currently selected speaker.
+   Does nothing if no speaker is found to the north."
+  [conn]
+  (when-let [current (selected-speaker (d/db conn))]
+    (when-let [north (find-nearest-cardinal 
+                     (d/db conn) 
+                     current 
+                     #(< (:speaker/y %2) (:speaker/y %1)))]
+      (d/transact! conn [{:selected/speaker (:db/id north)}])
+      north)))
+
+(defn select-south!
+  "Selects the nearest speaker to the south of the currently selected speaker.
+   Does nothing if no speaker is found to the south."
+  [conn]
+  (when-let [current (selected-speaker (d/db conn))]
+    (when-let [south (find-nearest-cardinal 
+                     (d/db conn) 
+                     current 
+                     #(> (:speaker/y %2) (:speaker/y %1)))]
+      (d/transact! conn [{:selected/speaker (:db/id south)}])
+      south)))
+
+(defn select-east!
+  "Selects the nearest speaker to the east of the currently selected speaker.
+   Does nothing if no speaker is found to the east."
+  [conn]
+  (when-let [current (selected-speaker (d/db conn))]
+    (when-let [east (find-nearest-cardinal 
+                    (d/db conn) 
+                    current 
+                    #(> (:speaker/x %2) (:speaker/x %1)))]
+      (d/transact! conn [{:selected/speaker (:db/id east)}])
+      east)))
+
+(defn select-west!
+  "Selects the nearest speaker to the west of the currently selected speaker.
+   Does nothing if no speaker is found to the west."
+  [conn]
+  (when-let [current (selected-speaker (d/db conn))]
+    (when-let [west (find-nearest-cardinal 
+                    (d/db conn) 
+                    current 
+                    #(< (:speaker/x %2) (:speaker/x %1)))]
+      (d/transact! conn [{:selected/speaker (:db/id west)}])
+      west)))
+
 (defn- shift-loop!
   "Helper function to shift a loop by a given amount.
    amount is in terms of beat-size (positive for right, negative for left)"
