@@ -513,25 +513,25 @@
       (d/transact! conn [{:selected/speaker center-id}])
 
       (testing "selecting north speaker"
-        (let [result (db/select-north! conn)
+        (let [result (db/select-north-speaker! conn)
               selected (db/selected-speaker (d/db conn))]
           (is (= north-id (:db/id result)) "Should return north speaker")
           (is (= north-id (:db/id selected)) "Should select north speaker")))
 
       (testing "selecting south speaker from north"
-        (let [result (db/select-south! conn)
+        (let [result (db/select-south-speaker! conn)
               selected (db/selected-speaker (d/db conn))]
           (is (= center-id (:db/id result)) "Should return center speaker")
           (is (= center-id (:db/id selected)) "Should select center speaker")))
 
       (testing "selecting east speaker from center"
-        (let [result (db/select-east! conn)
+        (let [result (db/select-east-speaker! conn)
               selected (db/selected-speaker (d/db conn))]
           (is (= east-id (:db/id result)) "Should return east speaker")
           (is (= east-id (:db/id selected)) "Should select east speaker")))
 
       (testing "selecting west speaker from east"
-        (let [result (db/select-west! conn)
+        (let [result (db/select-west-speaker! conn)
               selected (db/selected-speaker (d/db conn))]
           (is (= center-id (:db/id result)) "Should return center speaker")
           (is (= center-id (:db/id selected)) "Should select center speaker")))
@@ -539,7 +539,7 @@
       (testing "no speaker in direction"
         ;; Select north speaker
         (d/transact! conn [{:selected/speaker north-id}])
-        (is (nil? (db/select-north! conn)) "Should return nil when no speaker north")
+        (is (nil? (db/select-north-speaker! conn)) "Should return nil when no speaker north")
         (let [selected (db/selected-speaker (d/db conn))]
           (is (= north-id (:db/id selected)) "Should not change selection"))))))
 

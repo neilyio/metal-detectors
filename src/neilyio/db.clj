@@ -1,22 +1,4 @@
 (ns neilyio.db
-
-(comment
-  ;; Create a 6x10 grid of speakers if they don't exist yet
-  (let [conn (get-conn)
-        db (d/db conn)
-        existing-count (count (d/q '[:find ?e 
-                                   :where [?e :speaker/created-at]] 
-                                 db))]
-    (when (< existing-count 60)
-      (doseq [x (range 6)
-              y (range 10)
-              :let [speaker-x (* x 10)
-                    speaker-y (* y 10)]]
-        (d/transact! conn [{:speaker/x speaker-x
-                           :speaker/y speaker-y 
-                           :speaker/created-at (System/currentTimeMillis)}])))))
-
-(ns neilyio.db
   (:require
    [datalevin.core :as d]
    [neilyio.cache :as cache]
@@ -327,76 +309,76 @@
           valid-speakers (filter #(pred-fn current-speaker %) speakers)]
       (when (seq valid-speakers)
         (apply min-key #(+ (Math/pow (- (:speaker/x %) (:speaker/x current-speaker)) 2)
-                          (Math/pow (- (:speaker/y %) (:speaker/y current-speaker)) 2))
+                           (Math/pow (- (:speaker/y %) (:speaker/y current-speaker)) 2))
                valid-speakers)))))
 
-(defn select-north!
+(defn select-north-speaker!
   "Selects the nearest speaker to the north of the currently selected speaker.
    Does nothing if no speaker is found to the north."
   [conn]
   (when-let [current (selected-speaker (d/db conn))]
-    (when-let [north (find-nearest-cardinal 
-                     (d/db conn) 
-                     current 
-                     #(< (:speaker/y %2) (:speaker/y %1)))]
+    (when-let [north (find-nearest-cardinal
+                      (d/db conn)
+                      current
+                      #(< (:speaker/y %2) (:speaker/y %1)))]
       ;; First retract existing selection
       (when-let [selected-entity (ffirst (d/q '[:find ?e
-                                               :where [?e :selected/speaker]]
-                                             (d/db conn)))]
+                                                :where [?e :selected/speaker]]
+                                              (d/db conn)))]
         (d/transact! conn [[:db/retract selected-entity :selected/speaker (:db/id current)]]))
       ;; Then add new selection
       (d/transact! conn [{:db/id (d/tempid -1) :selected/speaker (:db/id north)}])
       north)))
 
-(defn select-south!
+(defn select-south-speaker!
   "Selects the nearest speaker to the south of the currently selected speaker.
    Does nothing if no speaker is found to the south."
   [conn]
   (when-let [current (selected-speaker (d/db conn))]
-    (when-let [south (find-nearest-cardinal 
-                     (d/db conn) 
-                     current 
-                     #(> (:speaker/y %2) (:speaker/y %1)))]
+    (when-let [south (find-nearest-cardinal
+                      (d/db conn)
+                      current
+                      #(> (:speaker/y %2) (:speaker/y %1)))]
       ;; First retract existing selection
       (when-let [selected-entity (ffirst (d/q '[:find ?e
-                                               :where [?e :selected/speaker]]
-                                             (d/db conn)))]
+                                                :where [?e :selected/speaker]]
+                                              (d/db conn)))]
         (d/transact! conn [[:db/retract selected-entity :selected/speaker (:db/id current)]]))
       ;; Then add new selection
       (d/transact! conn [{:db/id (d/tempid -1) :selected/speaker (:db/id south)}])
       south)))
 
-(defn select-east!
+(defn select-east-speaker!
   "Selects the nearest speaker to the east of the currently selected speaker.
    Does nothing if no speaker is found to the east."
   [conn]
   (when-let [current (selected-speaker (d/db conn))]
-    (when-let [east (find-nearest-cardinal 
-                    (d/db conn) 
-                    current 
-                    #(> (:speaker/x %2) (:speaker/x %1)))]
+    (when-let [east (find-nearest-cardinal
+                     (d/db conn)
+                     current
+                     #(> (:speaker/x %2) (:speaker/x %1)))]
       ;; First retract existing selection
       (when-let [selected-entity (ffirst (d/q '[:find ?e
-                                               :where [?e :selected/speaker]]
-                                             (d/db conn)))]
+                                                :where [?e :selected/speaker]]
+                                              (d/db conn)))]
         (d/transact! conn [[:db/retract selected-entity :selected/speaker (:db/id current)]]))
       ;; Then add new selection
       (d/transact! conn [{:db/id (d/tempid -1) :selected/speaker (:db/id east)}])
       east)))
 
-(defn select-west!
+(defn select-west-speaker!
   "Selects the nearest speaker to the west of the currently selected speaker.
    Does nothing if no speaker is found to the west."
   [conn]
   (when-let [current (selected-speaker (d/db conn))]
-    (when-let [west (find-nearest-cardinal 
-                    (d/db conn) 
-                    current 
-                    #(< (:speaker/x %2) (:speaker/x %1)))]
+    (when-let [west (find-nearest-cardinal
+                     (d/db conn)
+                     current
+                     #(< (:speaker/x %2) (:speaker/x %1)))]
       ;; First retract existing selection
       (when-let [selected-entity (ffirst (d/q '[:find ?e
-                                               :where [?e :selected/speaker]]
-                                             (d/db conn)))]
+                                                :where [?e :selected/speaker]]
+                                              (d/db conn)))]
         (d/transact! conn [[:db/retract selected-entity :selected/speaker (:db/id current)]]))
       ;; Then add new selection
       (d/transact! conn [{:db/id (d/tempid -1) :selected/speaker (:db/id west)}])
@@ -494,6 +476,18 @@
 
 (defmethod events/handle [:db :retract-speaker] [{::keys [conn]}]
   (retract-selected-speaker! conn))
+
+(defmethod events/handle [:db :select-north-speaker] [{::keys [conn]}]
+  (select-north-speaker! conn))
+
+(defmethod events/handle [:db :select-south-speaker] [{::keys [conn]}]
+  (select-south-speaker! conn))
+
+(defmethod events/handle [:db :select-east-speaker] [{::keys [conn]}]
+  (select-east-speaker! conn))
+
+(defmethod events/handle [:db :select-west-speaker] [{::keys [conn]}]
+  (select-west-speaker! conn))
 
 (defmethod events/handle [:db :select-next-speaker] [{::keys [conn]}]
   (select-next-speaker! conn))
