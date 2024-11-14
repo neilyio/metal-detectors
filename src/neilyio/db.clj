@@ -366,6 +366,17 @@
       (d/transact! conn [{:db/id (d/tempid -1) :selected/speaker (:db/id east)}])
       east)))
 
+(defn selected-speaker-and-neighbors
+  "Returns a 5-tuple of [selected north east south west] speakers.
+   Any neighbor position may be nil if no speaker exists in that direction."
+  [db]
+  (when-let [current (selected-speaker db)]
+    [current
+     (find-nearest-cardinal db current #(< (:speaker/y %2) (:speaker/y %1)))
+     (find-nearest-cardinal db current #(> (:speaker/x %2) (:speaker/x %1)))
+     (find-nearest-cardinal db current #(> (:speaker/y %2) (:speaker/y %1)))
+     (find-nearest-cardinal db current #(< (:speaker/x %2) (:speaker/x %1)))]))
+
 (defn select-west-speaker!
   "Selects the nearest speaker to the west of the currently selected speaker.
    Does nothing if no speaker is found to the west."

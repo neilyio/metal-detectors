@@ -428,6 +428,53 @@
                          (set (-> speaker :speaker/loop :loop/source)))
             "Should have correct source attributes")))))
 
+(deftest selected-speaker-and-neighbors-test
+  (testing "speaker and neighbors detection"
+    (let [conn *test-db*
+          ;; Create a grid of test speakers
+          [center] (:tx-data (d/transact! conn [{:speaker/x 0
+                                                :speaker/y 0
+                                                :speaker/created-at 1000}]))
+          [north] (:tx-data (d/transact! conn [{:speaker/x 0
+                                               :speaker/y -1
+                                               :speaker/created-at 1001}]))
+          [east] (:tx-data (d/transact! conn [{:speaker/x 1
+                                              :speaker/y 0
+                                              :speaker/created-at 1002}]))
+          [south] (:tx-data (d/transact! conn [{:speaker/x 0
+                                               :speaker/y 1
+                                               :speaker/created-at 1003}]))
+          [west] (:tx-data (d/transact! conn [{:speaker/x -1
+                                              :speaker/y 0
+                                              :speaker/created-at 1004}]))]
+
+      ;; Select center speaker
+      (d/transact! conn [{:selected/speaker (:e center)}])
+
+      (testing "with center speaker selected"
+        (let [[sel n e s w] (db/selected-speaker-and-neighbors (d/db conn))]
+          (is (= (:e center) (:db/id sel)) "Should return center as selected")
+          (is (= (:e north) (:db/id n)) "Should find north neighbor")
+          (is (= (:e east) (:db/id e)) "Should find east neighbor") 
+          (is (= (:e south) (:db/id s)) "Should find south neighbor")
+          (is (= (:e west) (:db/id w)) "Should find west neighbor")))
+
+      (testing "with edge speaker selected"
+        ;; Select north speaker which should have no north neighbor
+        (d/transact! conn [{:selected/speaker (:e north)}])
+        (let [[sel n e s w] (db/selected-speaker-and-neighbors (d/db conn))]
+          (is (= (:e north) (:db/id sel)) "Should return north as selected")
+          (is (nil? n) "Should have no north neighbor")
+          (is (some? e) "Should have east neighbor")
+          (is (= (:e center) (:db/id s)) "Should find center as south")
+          (is (some? w) "Should have west neighbor")))
+
+      (testing "with no speaker selected"
+        ;; Clear selection
+        (d/transact! conn [[:db/retract [:selected/speaker (:e north)] :selected/speaker (:e north)]])
+        (is (nil? (db/selected-speaker-and-neighbors (d/db conn))) 
+            "Should return nil when no speaker selected")))))
+
 (deftest delete-all-loops-test
   (testing "deleting all loops"
     (let [conn *test-db*
