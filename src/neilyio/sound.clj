@@ -9,11 +9,17 @@
    [neilyio.events :as events]
    [overtone.live :as live]))
 
+(declare init!)
+
+(defn ^:export before-ns-unload []
+  (live/clear)
+  (init! (db/get-conn) cache/conn))
+
 (live/defsynth timeline
   "Takes the id of the buffer to play, and the normalized (0 - 1) start/end,
    which loops within the buffer. Also takes a state-bus which can be polled
    to get the absolute position in frames within the buffer."
-  [buffer 0 in 0 out 1 state-bus 0]
+  [buffer 0 in 0 out 1 state-bus 0 out-bus 0]
   (let [sample-rate (live/buf-sample-rate:kr buffer)
         rate-scale (live/buf-rate-scale:kr buffer)
         frames (live/buf-frames:kr buffer)
@@ -37,7 +43,7 @@
                             in                        ;; loop-start
                             out                       ;; loop-end
                             ])
-    (live/out:ar 0 (live/buf-rd 2 buffer ptr))))
+    (live/out:ar out-bus (live/buf-rd 2 buffer ptr))))
 
 (live/defsynth playcontrol [id 0 play 1 state-bus 0]
   (live/out:kr state-bus [id play])
@@ -62,6 +68,47 @@
      ::loop-start       loop-start
      ::loop-end         loop-end}))
 
+(live/defsynth master
+  [selected 0 north 0 east 0 south 0 west 0]
+  (let [mtr-filter #(* 0.6 %)
+        vol-filter #(* 0.2 %)
+        hpf-filter #(hpf % 50)
+        rvb-filter #(free-verb % :mix 0.6 :room 0.6)]
+    (->> (+ (-> (in:ar selected 2) mtr-filter)
+            (-> (in:ar north 2) hpf-filter vol-filter rvb-filter)
+            (-> (in:ar east 2)  hpf-filter vol-filter rvb-filter)
+            (-> (in:ar south 2) hpf-filter vol-filter rvb-filter)
+            (-> (in:ar west 2)  hpf-filter vol-filter rvb-filter))
+         (* 0.5)
+         (out:ar 0))))
+
+(defn get-loop-buses [db cache]
+  (let [[selected north east south west] (db/selected-speaker-and-neighbors (d/db db))
+        selected-timeline (->> selected :db/id (cache/timeline-by-speaker @cache))
+        north-timeline (->> north :db/id (cache/timeline-by-speaker @cache))
+        east-timeline (->> east :db/id (cache/timeline-by-speaker @cache))
+        south-timeline (->> south :db/id (cache/timeline-by-speaker @cache))
+        west-timeline (->> west :db/id (cache/timeline-by-speaker @cache))]
+    (merge
+     {::selected (-> selected-timeline :timeline/looper-out)
+      ::north (-> north-timeline :timeline/looper-out)
+      ::east (-> east-timeline :timeline/looper-out)
+      ::south (-> south-timeline :timeline/looper-out)
+      ::west (-> west-timeline :timeline/looper-out)})))
+
+(defn setup-master! [db cache]
+  (let [{::keys [selected north east south west]} (get-loop-buses db cache)
+        master-synth  (master :selected (or selected 0)
+                              :north    (or north 0)
+                              :east     (or east 0)
+                              :south    (or south 0)
+                              :west     (or west 0))
+        master-info    (live/control-bus 2)
+        master-control (playcontrol :id (:id master-synth) :play 1 :state-bus master-info)]
+    (cache/transact!
+     cache
+     [{:master/synth master-synth :master/control master-control :master/info master-info}])))
+
 (defn init!
   "Return an event handler function that takes state and returns new state.
    Args:
@@ -73,46 +120,39 @@
   [db cache]
   (doseq [speaker     (db/find-all-speakers (d/db db))]
     (let [looper-info (live/control-bus 8)
-          player-info (live/control-bus 2)
-          looper      (timeline :buffer 0 :start 0 :state-bus looper-info)
-          player      (playcontrol :id (:id looper) :play 0 :state-bus player-info)]
-      (cache/timeline! cache (:db/id speaker) looper player looper-info player-info))))
+          looper-out  (live/audio-bus 2)
+          {:loop/keys [source in out]} (-> speaker :speaker/loop :loop/source)
+          sample      (cache/sample-by-source @cache (-> source :db/id))
+          looper      (timeline :buffer    (or sample 0)
+                                :in        (or in 0)
+                                :out       (or out 1)
+                                :state-bus looper-info
+                                :out-bus   looper-out)]
+      (cache/timeline! cache (:db/id speaker) looper looper-info looper-out)))
+
+  ;; Master must be added AFTER  above (or properly deal with addActions)
+  (setup-master! db cache))
 
 (defn ctx [db cache]
-  (let [speaker       (db/selected-speaker (d/db db))
-        loop          (-> speaker :speaker/loop)
-        source-id     (-> loop :loop/source :db/id)
-        sample        (cache/sample-by-source @cache source-id)
-        timeline      (cache/timeline-by-speaker @cache (:db/id speaker))
-        _ (assert timeline (str "could not load timeline from cache for speaker" speaker))
-        looper        (:timeline/looper timeline)
-        player        (:timeline/player timeline)
-        looper-status (:timeline/looper-status timeline)
-        player-status (:timeline/player-status timeline)
-        timeline-info (timeline-info looper-status player-status)]
+  (let [selected (db/selected-speaker (d/db db))
+        selected-timeline (->> selected :db/id (cache/timeline-by-speaker @cache))
+        master (cache/master @cache)]
+    (assert master "no master")
     (merge
-     timeline-info
-     (select-keys loop [:loop/in :loop/out])
-     {::selected-sample   sample
-      ::all-players       (map :timeline/player (cache/all-timelines @cache))
-      ::all-loopers       (map :timeline/looper (cache/all-timelines @cache))
-      ::selected-looper   looper
-      ::selected-player   player})))
+     (-> selected :speaker/loop (select-keys [:loop/in :loop/out]))
+     (get-loop-buses db cache)
+     (timeline-info
+      (->> selected-timeline :timeline/looper-status)
+      (->> (cache/master @cache) :master/info))
+     {::sample (->> selected :speaker/loop :loop/source :db/id (cache/sample-by-source @cache))
+      ::looper (-> selected-timeline :timeline/looper)
+      ; ::player (-> selected-timeline :timeline/player)
+      ::master (-> master :master/synth)})))
 
-(defmethod events/handle [:sound :play]
-  [{::keys [selected-player selected-looper selected-sample]}]
-  (when selected-sample
-    (live/ctl selected-player :id selected-looper :play 1)))
-
-(defmethod events/handle [:sound :pause]
-  [{::keys [selected-player selected-looper selected-sample]}]
-  (when selected-sample
-    (live/ctl selected-player :id selected-looper :play 0)))
-
-(defmethod events/handle [:sound :play-toggle]
-  [{::keys [playing? all-players all-loopers]}]
-  (doseq [[player looper] (map vector all-players all-loopers)]
-    (live/ctl player :id looper :play (if (zero? playing?) 1 0))))
+; (defmethod events/handle [:sound :play-toggle]
+;   [{::keys [playing? all-players all-loopers]}]
+;   (doseq [[player looper] (map vector all-players all-loopers)]
+;     (live/ctl player :id looper :play (if (zero? playing?) 1 0))))
 
 (doseq [event [:loop-beats-4
                :loop-beats-half
@@ -127,12 +167,26 @@
                :loop-beats-right-01
                :select-prev-speaker
                :select-next-speaker
+               :select-north-speaker
+               :select-south-speaker
+               :select-east-speaker
+               :select-west-speaker
                :select-prev-source
                :select-next-source
                :location]]
+  (defmethod events/handle [:sound event]
+    [{:loop/keys [in out] ::keys [sample looper master selected north south east west]}]
 
-  (defmethod events/handle [:sound event] [{:loop/keys [in out] ::keys [selected-looper selected-sample]}]
-    (when selected-sample
-      (when in  (live/ctl selected-looper :buffer selected-sample :in in))
-      (when out (live/ctl selected-looper :buffer selected-sample :out out)))))
+    (when in (live/ctl looper :in in))
+    (when out (live/ctl looper :out out))
+    (when sample (live/ctl looper :buffer sample))
 
+    (live/ctl master
+              :selected (or selected 0)
+              :north (or north 0)
+              :east (or east 0)
+              :west (or west 0)
+              :south (or south 0))))
+
+(comment
+  nil)

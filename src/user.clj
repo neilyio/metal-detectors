@@ -15,6 +15,58 @@
             [datascript.core :as ds]
             [datalevin.core :as d]))
 
+(comment
+  (require '[overtone.live :as live])
+
+  (def selected-speaker (db/selected-speaker (d/db (db/get-conn))))
+  (def selected-timeline (cache/timeline-by-speaker @cache/conn (:db/id selected-speaker)))
+  (def selected-out-bus (:timeline/looper-out selected-timeline))
+  (def selected-sample (cache/sample-by-source @cache/conn (-> selected-speaker :speaker/loop :loop/source :db/id)))
+  (def master (cache/master @cache/conn))
+
+  (tap> (:master/synth master))
+
+  (keys selected-sample)
+  (keys (:master/synth master))
+  (keys (sound/master))
+  (def new-master (sound/master))
+
+  (tap> new-master)
+
+  (live/ctl sound/master-synth :selected selected-out-bus)
+  (live/ctl (sound/master) :selected selected-out-bus)
+
+  (nil? master)
+  (def synth (sound/timeline :buffer selected-sample :in 0 :out-bus selected-out-bus))
+  (sound/master selected-out-bus 2)
+
+  (keys selected-timeline)
+  ((live/synth
+    (live/out:ar 0 (live/in:ar selected-out-bus 2))))
+
+  (live/stop)
+
+  nil)
+
+(comment
+  ;; Create a 6x10 grid of speakers if they don't exist yet
+  (let [conn (db/get-conn)
+        db (d/db conn)
+        existing (d/q '[:find ?e
+                        :where [?e :speaker/created-at]]
+                      db)]
+    (when (< (count existing) 60)
+      (doseq [x (range 6)
+              y (range 10)
+              :let [speaker-x (* x 10)
+                    speaker-y (* y 10)]]
+        (d/transact! conn [{:speaker/x speaker-x
+                            :speaker/y speaker-y
+                            :speaker/created-at (System/currentTimeMillis)}]))))
+
+  (count (cache/all-timelines @cache/conn))
+  nil)
+
 #_(comment
     (clj-reload.core/reload)
     (cache/count-buffers @cache/conn)

@@ -13,6 +13,9 @@
 (def count-buffers     (partial d/q  '[:find (count ?e) . :where [?e :buffer/sample]]))
 (def sample-by-source  (partial d/q  '[:find ?buffer . :in $ ?source-id
                                        :where [?e :buffer/source ?source-id] [?e :buffer/sample ?buffer]]))
+(defn master [db]
+  (->> (d/q '[:find ?e . :where [?e :master/synth]] db)
+       (d/entity db)))
 
 (def timeline-by-speaker (partial d/q '[:find (pull ?e [*]) . :in $ ?speaker-id
                                         :where [?e :timeline/speaker ?speaker-id]]))
@@ -24,10 +27,11 @@
 (defn info-bus! [conn bus] (d/transact! conn [{:bus/info bus}]))
 (defn timeline-bus! [conn bus] (d/transact! conn [{:bus/timeline bus}]))
 (defn playcontrol-bus! [conn bus] (d/transact! conn [{:bus/playcontrol bus}]))
-(defn timeline! [conn speaker looper player looper-status player-status]
+(defn timeline! [conn speaker looper looper-status looper-out]
   (d/transact! conn [{:timeline/speaker speaker
-                      :timeline/looper looper :timeline/player player
-                      :timeline/looper-status looper-status :timeline/player-status player-status}]))
+                      :timeline/looper looper
+                      :timeline/looper-status looper-status
+                      :timeline/looper-out looper-out}]))
 
 (defn bytes->sample [bytes]
   (fs/with-temp-dir [dir {}]

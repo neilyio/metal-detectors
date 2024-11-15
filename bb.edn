@@ -1,6 +1,7 @@
 {:paths ["src", "resources"]
  :deps {neilyio/metal-detectors {:local/root "."}}
- :pods {org.babashka/fswatcher {:version "0.0.5"}}
+ :pods {org.babashka/fswatcher {:version "0.0.5"}
+        org.babashka/lanterna  {:version "0.0.1"}}
  :tasks {main-repl (clojure "-X:jvm-base neilyio.repl/socket-repl")
          debug-repl (clojure)
          socket (shell "nc localhost" repl-port)
@@ -65,9 +66,46 @@
 
          test-watch (shell "watchexec -e clj,edn bb test-cmd")
 
+         positions
+         (while true
+           (Thread/sleep 1000)
+           (let [xpad 60
+                 ypad 4
+                 tput (fn [cmd & args] (:out (apply shell {:out :string} "tput" cmd args)))
+                 cols (- (edn/read-string (tput "cols")) (* 2 xpad))
+                 lines (- (edn/read-string (tput "lines")) ypad)
+                 points (edn/read-string (nc data-port [:speaker-positions]))
+                 max-x (apply max (map :x points))
+                 max-y (apply max (map :y points))
+                 scale-point (fn [p]
+                               (assoc p :sx (int (* (/ (:x p) max-x) (dec cols)))
+                                      :sy (int (* (/ (:y p) max-y) (dec lines)))))
+                 scaled-points (sort-by (juxt :sy :sx) (map scale-point points))
+                 points-by-row (group-by :sy scaled-points)]
+             (shell "clear")
+             (do (dotimes [_ (+ (* 2 xpad) cols)] (print "-")) ; top border
+                 (println))
+             (doseq [y (range lines)]
+               (dotimes [_ xpad] (print " "))
+               (let [row-points (get points-by-row y)]
+                 (if row-points
+                   (loop [x 0 points row-points]
+                     (if (< x cols)
+                       (let [{:keys [sx selected?]} (first points)]
+                         (if (= x sx)
+                           (do (print (if selected? "█" ".")) ; separate icon for selected
+                               (recur (inc x) (rest points)))
+                           (do (print " ")
+                               (recur (inc x) points))))
+                       (println)))
+                   (do (dotimes [_ cols] (print " ")) ; Print empty line if no points in this row
+                       (println)))))
+             (do (dotimes [_ (+ (* 2 xpad) cols)] (print "-")) ; bottom border
+                 (println))))
+
          :init (do (require
                     '[clojure.edn :as edn]
                     '[babashka.process :refer [process]]
                     '[neilyio.config :refer [repl-port data-port db-path]]
+                    '[puget.printer :refer [cprint]]
                     '[neilyio.tasks :refer [read-event nc]]))}}
-

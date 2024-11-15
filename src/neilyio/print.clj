@@ -62,6 +62,8 @@
                :seek-left :seek-right
                :loop-in-left :loop-in-right
                :loop-out-left :loop-out-right
+               :select-north-speaker :select-south-speaker
+               :select-east-speaker :select-west-speaker
                :play-toggle]]
   (defmethod events/handle [:print event] [state & args]
     (apply (speaker-event event source-pattern) state args)))
@@ -85,6 +87,11 @@
 
 (defmethod events/handle [:print :selected-speaker] [{::keys [db]}]
   (get-selected-speaker db source-pattern))
+
+(defmethod events/handle [:print :speaker-positions] [{::keys [db]}]
+  (let [{selected-id :db/id} (db/selected-speaker db)]
+    (for [{:speaker/keys [x y] :db/keys [id]} (db/find-all-speakers db)]
+      {:x x :y y :selected? (= id selected-id)})))
 
 (defmethod events/handle :default [{:keys [event]}]
   {:event event})
