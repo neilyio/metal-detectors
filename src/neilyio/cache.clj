@@ -13,6 +13,11 @@
 (def count-buffers     (partial d/q  '[:find (count ?e) . :where [?e :buffer/sample]]))
 (def sample-by-source  (partial d/q  '[:find ?buffer . :in $ ?source-id
                                        :where [?e :buffer/source ?source-id] [?e :buffer/sample ?buffer]]))
+
+(defn synths [db]
+  (d/q '[:find (pull ?e [*]) . :where [?e :synth/master]]
+       db))
+
 (defn master [db]
   (->> (d/q '[:find ?e . :where [?e :master/synth]] db)
        (d/entity db)))
@@ -23,6 +28,7 @@
 (defn buffer! [conn id bytes]
   (let [sample (bytes->sample bytes)]
     (d/transact! conn [{:buffer/sample sample  :buffer/source id}])))
+
 (defn time-bus! [conn bus] (d/transact! conn [{:bus/time bus}]))
 (defn info-bus! [conn bus] (d/transact! conn [{:bus/info bus}]))
 (defn timeline-bus! [conn bus] (d/transact! conn [{:bus/timeline bus}]))

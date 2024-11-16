@@ -17,6 +17,26 @@
             [datalevin.core :as d]))
 
 (comment
+
+  (def db (db/get-conn))
+  (def cache cache/conn)
+
+  (doseq [[k v] (sound/ctx db cache)]
+    (println k (nil? v)))
+
+  (select-keys (cache/synths @db) [:synth/selected
+                                   :synth/north
+                                   :synth/east
+                                   :synth/south
+                                   :synth/west
+                                   :synth/master])
+  (def ctx (sound/ctx db cache))
+
+  ctx
+
+  nil)
+
+(comment
   (require '[overtone.live :as live])
   (->> (d/q '[:find [?e ...] :where [?e :speaker/x]]
             (d/db (db/get-conn)))
