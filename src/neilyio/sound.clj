@@ -19,30 +19,25 @@
   "Takes the id of the buffer to play, and the normalized (0 - 1) start/end,
    which loops within the buffer. Also takes a state-bus which can be polled
    to get the absolute position in frames within the buffer."
-  [buffer 0 in 0 out 1 state-bus 0 out-bus 0]
+  [buffer 0 in 0 out 1 state-bus 0 out-bus 0 rate 1]
   (let [sample-rate (live/buf-sample-rate:kr buffer)
-        rate-scale (live/buf-rate-scale:kr buffer)
+        rate-scale (* (live/buf-rate-scale:kr buffer) rate)
         frames (live/buf-frames:kr buffer)
         start-pos (* in frames)
         end-pos   (* out frames)
-        ;; using the last-value of start to determine if we should trigger reset-pos.
         start-pos-delta (abs (- in (live/last-value in :diff 0)))
-        ;; so important! both start-pos and reset-pos MUST be set here, or seeking will be off.
         ptr (live/phasor:ar :start start-pos :end end-pos
                             :reset-pos start-pos
                             :rate rate-scale :trig start-pos-delta)]
-    ;; record state in a control bus
-    ;; remember you have to update the bus channel count
-    (live/out:kr state-bus [(/ (live/a2k ptr) frames) ;; current
-                            (live/a2k ptr)            ;; current-frame
-                            sample-rate               ;; sample-rate
-                            rate-scale                ;; rate-scale
-                            frames                    ;; total-frames
-                            start-pos                 ;; loop-start-frame
-                            end-pos                   ;; loop-end-frame
-                            in                        ;; loop-start
-                            out                       ;; loop-end
-                            ])
+    (live/out:kr state-bus [(/ (live/a2k ptr) frames)
+                            (live/a2k ptr)
+                            sample-rate
+                            rate-scale
+                            frames
+                            start-pos
+                            end-pos
+                            in
+                            out])
     (live/out:ar out-bus (live/buf-rd 2 buffer ptr))))
 
 (live/defsynth playcontrol [id 0 play 1 state-bus 0]
@@ -119,15 +114,20 @@
    Returns updated state with ::conn and ::db added."
   [db cache]
   (doseq [speaker     (db/find-all-speakers (d/db db))]
-    (let [looper-info (live/control-bus 8)
+    (let [master-bpm 123
+          looper-info (live/control-bus 8)
           looper-out  (live/audio-bus 2)
-          {:loop/keys [source in out]} (-> speaker :speaker/loop :loop/source)
+          {:loop/keys [source in out bpm]} (-> speaker :speaker/loop :loop/source)
           sample      (cache/sample-by-source @cache (-> source :db/id))
+          rate        (if (and bpm master-bpm)
+                        (/ bpm master-bpm)
+                        1)
           looper      (timeline :buffer    (or sample 0)
                                 :in        (or in 0)
                                 :out       (or out 1)
                                 :state-bus looper-info
-                                :out-bus   looper-out)]
+                                :out-bus   looper-out
+                                :rate      rate)]
       (cache/timeline! cache (:db/id speaker) looper looper-info looper-out)))
 
   ;; Master must be added AFTER  above (or properly deal with addActions)
@@ -137,6 +137,7 @@
   (let [selected (db/selected-speaker (d/db db))
         selected-timeline (->> selected :db/id (cache/timeline-by-speaker @cache))
         master (cache/master @cache)]
+    (tap> [:sound-ctx {:selected selected :timline-keys (keys selected-timeline)}])
     (assert master "no master")
     (merge
      (-> selected :speaker/loop (select-keys [:loop/in :loop/out]))

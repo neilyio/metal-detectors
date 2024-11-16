@@ -10,6 +10,7 @@
             [neilyio.repl :as repl]
             [neilyio.utils :as utils]
             [clj-reload.core]
+            [clojure.edn :as edn]
             [portal.api]
             [babashka.fs :as fs]
             [datascript.core :as ds]
@@ -17,6 +18,14 @@
 
 (comment
   (require '[overtone.live :as live])
+  (->> (d/q '[:find [?e ...] :where [?e :speaker/x]]
+            (d/db (db/get-conn)))
+       (sort))
+  (db/select-speaker-by-id! (db/get-conn) 1)
+  (d/transact! (db/get-conn) [{:db/id (d/tempid -1) :selected/speaker 29}])
+  (db/selected-speaker (d/db (db/get-conn)))
+
+  (sort (map :db/id (db/find-all-speakers (d/db (db/get-conn)))))
 
   (def selected-speaker (db/selected-speaker (d/db (db/get-conn))))
   (def selected-timeline (cache/timeline-by-speaker @cache/conn (:db/id selected-speaker)))
@@ -131,11 +140,15 @@
     (d/q '[:find ?e :where [?e :source/label ?l]] (d/db conn))
 
     (doseq [path (fs/list-dir "/Users/neilhansen/Desktop/test_tracks")
-            :when  (not (= (fs/extension path) "DS_Store"))]
-      (d/transact! (d/get-conn config/db-path db/schema)
-                   [{:source/label (fs/file-name path)
-                     :source/bytes (fs/read-all-bytes path)
-                     :source/bpm 123}]))
+            :when  (and (not (= "loaded" (fs/file-name path)))
+                        (not (= (fs/extension path) "DS_Store")))
+            :let [bpm (edn/read-string (fs/file-name path))
+                  tracks (fs/list-dir path)]]
+      (doseq [track tracks]
+        (d/transact! (d/get-conn config/db-path db/schema)
+                     [{:source/label (fs/file-name track)
+                       :source/bytes (fs/read-all-bytes track)
+                       :source/bpm bpm}])))
 
     (db/transact! repl/state
                   (for [source (utils/list-sources)]

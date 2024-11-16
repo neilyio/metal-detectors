@@ -312,6 +312,22 @@
                            (Math/pow (- (:speaker/y %) (:speaker/y current-speaker)) 2))
                valid-speakers)))))
 
+(defn select-speaker-by-id!
+  "Selects the nearest speaker to the east of the currently selected speaker.
+   Does nothing if no speaker is found to the east."
+  [conn speaker-id]
+  (let [current (selected-speaker (d/db conn))
+        speakers (->> (d/q '[:find [?e ...] :where [?e :speaker/x]]
+                           (d/db conn))
+                      (map #(d/entity (d/db conn) %)))
+        sorted (sort-by :speaker/x speakers)
+        new-selected (:db/id (nth sorted speaker-id (last sorted)))]
+    (tap> [:new-selected new-selected speakers])
+    (when-let [selected-entity (ffirst (d/q '[:find ?e :where [?e :selected/speaker]]
+                                            (d/db conn)))]
+      (d/transact! conn [[:db/retract selected-entity :selected/speaker (:db/id current)]]))
+    (d/transact! conn [{:db/id (d/tempid -1) :selected/speaker new-selected}])))
+
 (defn select-north-speaker!
   "Selects the nearest speaker to the north of the currently selected speaker.
    Does nothing if no speaker is found to the north."
@@ -567,8 +583,8 @@
   (create-loop-from-selected! conn))
 
 (defmethod events/handle [:db :location] [{::keys [conn] :keys [event]}]
+  (tap> [:LOCATION event])
   (when-let [id (second event)]
-    (dotimes [_ (mod id 15)]
-      (select-next-source! conn))))
+    (select-speaker-by-id! conn id)))
 
 
